@@ -1,41 +1,73 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+.pnp.js
+.yarn/install-state.gz
 
-# testing
-/coverage
-
-# next.js
+# Next.js
 /.next/
+.next/
 /out/
 
-# production
-/build
+# Environment variables
+.env
+.env*.local
 
-# misc
-.DS_Store
-*.pem
+# OCR Service
+/ocr_service/venv
+/ocr_service/__pycache__
+/ocr_service/*.pyc
+/ocr_service/*.pyo
+/ocr_service/*.pyd
+/ocr_service/.Python
+/ocr_service/env/
+/ocr_service/build/
+/ocr_service/develop-eggs/
+/ocr_service/dist/
+/ocr_service/downloads/
+/ocr_service/eggs/
+/ocr_service/lib/
+/ocr_service/lib64/
+/ocr_service/parts/
+/ocr_service/sdist/
+/ocr_service/var/
+/ocr_service/*.egg-info/
 
-# debug
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
+# Vercel
 .vercel
 
-# typescript
+# Testing
+/coverage
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+.vscode/
+*.log
+
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cache directories
+.qodo
+.npm
+
+# Temporary files
+*.tmp
+*.temp
+
+# Supabase
+/supabase/.temp
+
+# OCR Service
+ocr_service/
+ocr_service
