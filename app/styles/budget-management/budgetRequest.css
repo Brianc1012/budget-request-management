@@ -9,6 +9,34 @@ button {
   font-family: var(--font-sans) !important;
 }
 
+/* ----- FILTER BUTTON STYLING ----- */
+.adminConf {
+    display: flex;
+    gap: 15px !important;
+    margin-left: 0.5rem !important;
+    align-items: left;
+}
+.conf-btn {
+    width: min-content !important;
+    height: 35px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 0 5px;
+    border-radius: 8px !important;
+    background-color: var(--table-header-color) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--secondary-text-color) !important;
+    font-size: 14px !important;
+    transition: all 0.3s ease-in-out !important;
+    cursor: pointer !important;
+}
+
+.conf-btn:hover {
+    background-color: var(--table-header-hover-color) !important;
+}
+
 /* ---------- Settings Block ---------- */
 .settings {
   display: flex !important;

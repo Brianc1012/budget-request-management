@@ -1,0 +1,559 @@
+/* ============================================================
+   autoApproveRequest.css – Auto Approval Configuration Modal
+   Based on viewBudgetRequest.css for unified styling
+   ============================================================ */
+
+/* ---------- Overlay ---------- */
+.modalOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 1050 !important;
+  overflow: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.modalOverlay::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* ---------- Modal Box ---------- */
+.autoApproveRequestModal {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  background: var(--foreground-color) !important;
+  padding: var(--modal-padding) !important;
+  border-radius: var(--modal-border-radius) !important;
+  width: 90% !important;
+  max-width: 1400px !important;
+  max-height: 90vh !important;
+  overflow: hidden !important;
+  box-shadow: var(--box-shadow) !important;
+  position: relative !important;
+  font-family: var(--font-sans) !important;
+  color: var(--primary-text-color) !important;
+}
+
+.autoApproveRequestModal .modalContent {
+  width: 100% !important;
+  overflow-y: auto !important;
+  max-height: calc(90vh - 120px) !important;
+  scrollbar-width: thin !important;
+}
+.autoApproveRequestModal .modalContent::-webkit-scrollbar {
+  width: 6px !important;
+}
+.autoApproveRequestModal .modalContent::-webkit-scrollbar-thumb {
+  background: var(--border-color) !important;
+  border-radius: 6px !important;
+}
+
+/* ---------- Content ---------- */
+.modalContent {
+  width: var(--modal-content-width) !important;
+  max-width: 100% !important;
+  height: auto !important;
+  background-color: var(--modal-content-background-color) !important;
+  padding: var(--modal-content-padding) !important;
+  border-radius: var(--modal-content-border-radius) !important;
+  box-shadow: none !important;
+  overflow-y: visible !important;
+}
+
+/* ---------- Introduction Section ---------- */
+.configIntro {
+  background: #f8f9fa !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  padding: 1.5rem !important;
+  margin-bottom: 2rem !important;
+  color: var(--secondary-text-color) !important;
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+}
+
+.configIntro p {
+  margin: 0 !important;
+}
+
+/* ---------- Section Headers ---------- */
+.sectionHeader {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  color: var(--primary-color) !important;
+  margin: 1.5rem 0 1rem 0 !important;
+  padding-bottom: 0.5rem !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.sectionHeader h3 {
+  margin: 0 !important;
+}
+
+.globalActions {
+  display: flex !important;
+  gap: 0.5rem !important;
+}
+
+.resetBtn {
+  background: var(--warning-color) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 0.5rem 1rem !important;
+  cursor: pointer !important;
+  font-size: 0.85rem !important;
+  transition: background 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.resetBtn:hover {
+  background: var(--warning-hover-color) !important;
+}
+
+/* ---------- Department Configuration Cards ---------- */
+.departmentConfigSection {
+  margin-bottom: 2rem !important;
+}
+
+.departmentConfigCard {
+  background: white !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+  overflow: hidden !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.departmentConfigCard:hover {
+  border-color: var(--primary-color) !important;
+}
+
+.departmentHeader {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 1.5rem !important;
+  background: #f8f9fa !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.departmentInfo h4 {
+  margin: 0 0 0.25rem 0 !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  color: var(--primary-text-color) !important;
+}
+
+.departmentBudget {
+  font-size: 0.85rem !important;
+  color: var(--secondary-text-color) !important;
+  font-weight: 500 !important;
+}
+
+/* ---------- Toggle Switch ---------- */
+.toggleSwitch {
+  position: relative !important;
+  display: inline-block !important;
+  width: 80px !important;
+  height: 36px !important;
+}
+
+.toggleSwitch input {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.toggleSlider {
+  position: absolute !important;
+  cursor: pointer !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: #ccc !important;
+  transition: .3s !important;
+  border-radius: 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.toggleSlider:before {
+  position: absolute !important;
+  content: "" !important;
+  height: 28px !important;
+  width: 28px !important;
+  left: 4px !important;
+  bottom: 4px !important;
+  background-color: white !important;
+  transition: .3s !important;
+  border-radius: 50% !important;
+}
+
+input:checked + .toggleSlider {
+  background-color: var(--success-color) !important;
+}
+
+input:checked + .toggleSlider:before {
+  transform: translateX(44px) !important;
+}
+
+.toggleLabel {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: white !important;
+  text-transform: uppercase !important;
+  z-index: 1 !important;
+}
+
+/* ---------- Department Settings ---------- */
+.departmentSettings {
+  padding: 1.5rem !important;
+  background: white !important;
+}
+
+/* ---------- Approval Type Toggle ---------- */
+.approvalTypeSection {
+  margin-bottom: 1.5rem !important;
+}
+
+.approvalTypeToggle {
+  display: flex !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  background: white !important;
+}
+
+.typeBtn {
+  flex: 1 !important;
+  padding: 0.75rem 1rem !important;
+  border: none !important;
+  background: white !important;
+  color: var(--secondary-text-color) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+}
+
+.typeBtn:hover {
+  background: #f8f9fa !important;
+}
+
+.typeBtn.active {
+  background: var(--primary-color) !important;
+  color: white !important;
+}
+
+.typeBtn i {
+  font-size: 1rem !important;
+}
+
+/* ---------- Field Display Grid ---------- */
+.displayRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.displayField {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1;
+  margin: none;
+  width: 100%;
+  max-width: 100%;
+  background-color: none;
+}
+
+.displayField label {
+  font-size: var(--input-label-font-size) !important;
+  font-weight: var(--input-label-font-weight) !important;
+  margin-bottom: 0.5rem !important;
+  color: var(--primary-text-color) !important;
+}
+
+.displayValue {
+  width: 100% !important;
+  padding: 0.75rem !important;
+  border: 1px solid var(--border-color) !important;
+  outline: none !important;
+  border-radius: 4px !important;
+  font-family: var(--font-sans) !important;
+  background-color: white !important;
+  box-shadow: var(--box-shadow) !important;
+  color: var(--primary-text-color) !important;
+  font-size: 0.95rem !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.displayValue:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(45, 142, 255, 0.2) !important;
+}
+
+/* ---------- Amount and Percentage Inputs ---------- */
+.amountInputWrapper,
+.percentageInputWrapper {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.currencySymbol {
+  position: absolute !important;
+  left: 0.75rem !important;
+  color: var(--secondary-text-color) !important;
+  font-weight: 600 !important;
+  z-index: 1 !important;
+}
+
+.amountInput {
+  padding-left: 2rem !important;
+}
+
+.percentSymbol {
+  position: absolute !important;
+  right: 0.75rem !important;
+  color: var(--secondary-text-color) !important;
+  font-weight: 600 !important;
+  z-index: 1 !important;
+}
+
+.percentageInput {
+  padding-right: 2rem !important;
+  text-align: center !important;
+}
+
+/* ---------- Status Indicator ---------- */
+.statusIndicator {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.75rem !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+}
+
+.statusIndicator.enabled {
+  background: rgba(19, 206, 102, 0.1) !important;
+  color: var(--success-color) !important;
+  border: 1px solid rgba(19, 206, 102, 0.3) !important;
+}
+
+.statusIndicator.disabled {
+  background: rgba(255, 73, 73, 0.1) !important;
+  color: var(--error-color) !important;
+  border: 1px solid rgba(255, 73, 73, 0.3) !important;
+}
+
+/* ---------- Preview Section ---------- */
+.previewSection {
+  background: #f8f9fa !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  padding: 1rem !important;
+  margin-top: 1rem !important;
+}
+
+.previewLabel {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-weight: 600 !important;
+  color: var(--info-color) !important;
+  margin-bottom: 0.5rem !important;
+  font-size: 0.9rem !important;
+}
+
+.previewContent {
+  color: var(--secondary-text-color) !important;
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+}
+
+/* ---------- Auto Fill Note ---------- */
+.autoFillNote {
+  font-size: 0.8rem !important;
+  color: var(--secondary-text-color) !important;
+  font-style: italic !important;
+  margin-top: 0.5rem !important;
+}
+
+/* ---------- Summary Section ---------- */
+.summarySection {
+  background: #f8f9fa !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  padding: 1.5rem !important;
+  margin-top: 2rem !important;
+}
+
+.summaryGrid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 1rem !important;
+  margin-top: 1rem !important;
+}
+
+.summaryCard {
+  background: white !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  padding: 1rem !important;
+  text-align: center !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+.summaryDept {
+  font-weight: 600 !important;
+  color: var(--primary-text-color) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.summaryLimit {
+  font-size: 1.1rem !important;
+  font-weight: bold !important;
+  color: var(--success-color) !important;
+}
+
+.noAutoApproval {
+  grid-column: 1 / -1 !important;
+  text-align: center !important;
+  color: var(--secondary-text-color) !important;
+  font-style: italic !important;
+  padding: 2rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+}
+
+/* ---------- Modal Buttons ---------- */
+.modalButtons {
+  width: 100% !important;
+  margin-top: 1.25rem !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: var(--modal-button-gap) !important;
+  padding-top: 1rem !important;
+  border-top: 1px solid var(--border-color) !important;
+}
+
+.modalButtons button {
+  width: var(--modal-button-width) !important;
+  height: var(--modal-button-height) !important;
+  font-size: var(--modal-button-font-size) !important;
+  border-radius: var(--modal-button-border-radius) !important;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  color: var(--button-font-color) !important;
+  box-shadow: var(--box-shadow) !important;
+  transition: transform 0.15s ease, background 0.15s ease !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-weight: 500 !important;
+}
+
+.cancelBtn {
+  background: var(--secondary-text-color) !important;
+}
+.cancelBtn:hover {
+  background: var(--primary-hover-color) !important;
+}
+
+.saveBtn {
+  background: var(--success-color) !important;
+}
+.saveBtn:hover {
+  background: var(--success-hover-color) !important;
+}
+
+.saveBtn.hasChanges {
+  background: var(--primary-color) !important;
+  animation: pulse 2s infinite !important;
+}
+.saveBtn.hasChanges:hover {
+  background: var(--primary-hover-color) !important;
+}
+
+.saveBtn:disabled {
+  background: var(--border-color) !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(45, 142, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(45, 142, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 142, 255, 0);
+  }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .autoApproveRequestModal {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 1rem !important;
+  }
+
+  .departmentHeader {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: flex-start !important;
+  }
+
+  .displayRow {
+    flex-direction: column !important;
+  }
+
+  .approvalTypeToggle {
+    flex-direction: column !important;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modalButtons {
+    flex-direction: column !important;
+  }
+
+  .modalButtons button {
+    width: 100% !important;
+  }
+}

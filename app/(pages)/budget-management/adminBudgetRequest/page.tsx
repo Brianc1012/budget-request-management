@@ -13,6 +13,7 @@ import FilterDropdown, { FilterSection } from "../../../Components/filter";
 import AddBudgetRequest from './addBudgetRequest';
 import ViewBudgetRequest from './viewBudgetRequest';
 import AuditTrailBudgetRequest from './auditTrailBudgetRequest';
+import AutoApproveRequest from './autoApproveRequest';
 
 
 
@@ -45,6 +46,7 @@ const BudgetRequestPage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedRequestForAudit, setSelectedRequestForAudit] = useState<BudgetRequest | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<BudgetRequest | null>(null);
   const [availableCategories] = useState([
@@ -114,6 +116,17 @@ const BudgetRequestPage = () => {
 
     // Reset pagination
     setCurrentPage(1);
+  };
+
+  const handleSaveAutoApproval = async (settings: any[]) => {
+    try {
+      // Implement API call to save settings
+      console.log('Saving auto-approval settings:', settings);
+      // await saveAutoApprovalSettings(settings);
+    } catch (error) {
+      console.error('Error saving auto-approval settings:', error);
+      throw error;
+    }
   };
 
   // Mock data - replace with actual API call
@@ -220,6 +233,126 @@ const BudgetRequestPage = () => {
             approval_date: '2024-03-14',
             approved_by: 'Operations Manager',
             created_at: '2024-03-12T10:20:00Z'
+          },
+          {
+            request_id: 'BR009',
+            title: 'Fuel Management System',
+            description: 'Implementation of digital fuel management system to track consumption and optimize fuel efficiency across the entire fleet.',
+            requested_amount: 35000,
+            status: 'Pending Approval',
+            category: 'Operations',
+            requested_by: 'Carlos Rodriguez',
+            request_date: '2024-03-25',
+            created_at: '2024-03-25T09:30:00Z'
+          },
+          {
+            request_id: 'BR010',
+            title: 'Customer Service Training',
+            description: 'Comprehensive customer service training program for drivers and conductors to improve passenger experience and service quality.',
+            requested_amount: 12000,
+            status: 'Draft',
+            category: 'Training',
+            requested_by: 'Maria Santos',
+            request_date: '2024-03-26',
+            created_at: '2024-03-26T14:15:00Z'
+          },
+          {
+            request_id: 'BR011',
+            title: 'Bus Stop Shelter Construction',
+            description: 'Construction of covered waiting areas at 5 major bus stops to provide better passenger comfort during weather conditions.',
+            requested_amount: 85000,
+            status: 'Approved',
+            category: 'Infrastructure',
+            requested_by: 'Antonio Cruz',
+            request_date: '2024-03-20',
+            approval_date: '2024-03-22',
+            approved_by: 'Finance Admin',
+            created_at: '2024-03-20T11:45:00Z'
+          },
+          {
+            request_id: 'BR012',
+            title: 'Mobile Ticketing System',
+            description: 'Development and implementation of mobile app for digital ticket purchases and route information for passengers.',
+            requested_amount: 65000,
+            status: 'Rejected',
+            category: 'Marketing',
+            requested_by: 'Jennifer Kim',
+            request_date: '2024-03-15',
+            rejection_reason: 'Requires further market research and feasibility study',
+            created_at: '2024-03-15T16:20:00Z'
+          },
+          {
+            request_id: 'BR013',
+            title: 'Engine Overhaul Equipment',
+            description: 'Specialized equipment for engine overhaul and maintenance including hydraulic lifts and diagnostic computers.',
+            requested_amount: 95000,
+            status: 'Closed',
+            category: 'Maintenance',
+            requested_by: 'Frank Thompson',
+            request_date: '2024-02-20',
+            approval_date: '2024-02-25',
+            approved_by: 'Finance Admin',
+            created_at: '2024-02-20T08:30:00Z'
+          },
+          {
+            request_id: 'BR014',
+            title: 'Security Camera Upgrade',
+            description: 'Installation of high-definition security cameras and recording systems in all buses and terminals for enhanced safety.',
+            requested_amount: 42000,
+            status: 'Pending Approval',
+            category: 'Equipment',
+            requested_by: 'Steven Yang',
+            request_date: '2024-03-28',
+            created_at: '2024-03-28T13:00:00Z'
+          },
+          {
+            request_id: 'BR015',
+            title: 'Environmental Compliance Upgrade',
+            description: 'Vehicle modifications and equipment to meet new environmental standards and emissions requirements.',
+            requested_amount: 78000,
+            status: 'Draft',
+            category: 'Operations',
+            requested_by: 'Patricia White',
+            request_date: '2024-03-29',
+            created_at: '2024-03-29T10:45:00Z'
+          },
+          {
+            request_id: 'BR016',
+            title: 'Office Renovation Project',
+            description: 'Complete renovation of administrative offices including new furniture, lighting, and workspace optimization.',
+            requested_amount: 28000,
+            status: 'Approved',
+            category: 'Other',
+            requested_by: 'Michael Davis',
+            request_date: '2024-03-18',
+            approval_date: '2024-03-20',
+            approved_by: 'Operations Manager',
+            created_at: '2024-03-18T15:30:00Z'
+          },
+          {
+            request_id: 'BR017',
+            title: 'Route Optimization Software',
+            description: 'Advanced route planning and optimization software to reduce travel time and improve schedule efficiency.',
+            requested_amount: 55000,
+            status: 'Rejected',
+            category: 'Operations',
+            requested_by: 'Rachel Green',
+            request_date: '2024-03-22',
+            rejection_reason: 'Budget allocated to other priority projects this quarter',
+            created_at: '2024-03-22T12:15:00Z'
+          },
+          {
+            request_id: 'BR018',
+            title: 'Emergency Response Training',
+            description: 'Specialized training for emergency situations including medical emergencies, vehicle breakdowns, and evacuation procedures.',
+            requested_amount: 18500,
+            status: 'Closed',
+            category: 'Training',
+            requested_by: 'Kevin Park',
+            request_date: '2024-02-28',
+            approval_date: '2024-03-02',
+            approved_by: 'Safety Officer',
+            created_at: '2024-02-28T09:20:00Z'
           }
         ];
         
@@ -618,6 +751,12 @@ const BudgetRequestPage = () => {
             />
           </div>
 
+          <div className="adminConf">
+            <button className="conf-btn" onClick={() => setShowConfigModal(true)}>
+              <i className ="ri-tools-line" /> Configure
+            </button>
+          </div>
+          
           <FilterDropdown
             sections={filterSections}
             onApply={handleFilterApply}
@@ -627,6 +766,8 @@ const BudgetRequestPage = () => {
               category: categoryFilter ? categoryFilter.split(',') : []
             }}
           />
+
+          
 
           <div className="filters">
             {/* Export dropdown */}
@@ -796,6 +937,13 @@ const BudgetRequestPage = () => {
                 }}
                 showActions={true}
             />
+        )}
+
+        {showConfigModal && (
+          <AutoApproveRequest
+            onClose={() => setShowConfigModal(false)}
+            onSave={handleSaveAutoApproval}
+          />
         )}
       </div>
     </div>
