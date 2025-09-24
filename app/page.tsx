@@ -2,5 +2,5 @@
 import { redirect } from "next/navigation";
 
 export default function Home() {
-  redirect("/budget-management/adminBudgetRequest");
+  redirect("/budget-management/budgetRequest");
 }
