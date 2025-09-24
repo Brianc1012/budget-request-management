@@ -592,7 +592,7 @@ const BudgetRequestPage = () => {
   if (loading) {
           return (
               <div className="card">
-                  <h1 className="title">Budget Request (Admin)</h1>
+                  <h1 className="title">Budget Request</h1>
                   <Loading />
               </div>
           );
@@ -602,7 +602,7 @@ const BudgetRequestPage = () => {
     <div className="card">
       <div className="elements">
         <div className="title">
-          <h1>Budget Requests (Admin)</h1>
+          <h1>Budget Requests</h1>
         </div>
         
         <div className="settings">
