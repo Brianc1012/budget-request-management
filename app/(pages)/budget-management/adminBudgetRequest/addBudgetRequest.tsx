@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+//@ts-ignore
 import "../../../styles/budget-management/addBudgetRequest.css";
 import { formatDate } from '../../../utility/dateFormatter';
 import { showSuccess, showError, showConfirmation } from '../../../utility/Alerts';
 import { validateField, isValidAmount, ValidationRule } from "../../../utility/validation";
 import ModalHeader from '../../../Components/ModalHeader';
+import ItemsTable, { Item } from '../../../Components/itemTable';
 
 // Types
 interface BudgetItem {
@@ -15,6 +17,7 @@ interface BudgetItem {
   unit_cost: number;
   supplier: string;
   subtotal: number;
+  type: 'supply' | 'service';
 }
 
 interface NewBudgetRequest {
@@ -28,7 +31,7 @@ interface NewBudgetRequest {
   total_amount: number;
   start_date: string;
   end_date: string;
-  items?: BudgetItem[];
+  items?: Item[];
   supporting_documents?: File[];
   status: 'Draft' | 'Pending Approval';
   created_by: string;
@@ -70,7 +73,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
     created_by: currentUser
   });
 
-  const [items, setItems] = useState<BudgetItem[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [showItems, setShowItems] = useState(false);
   const [supportingDocuments, setSupportingDocuments] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -127,35 +130,6 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
     }
   };
 
-  // Item management functions
-  const addItem = () => {
-    setItems(prev => [...prev, {
-      item_name: '',
-      quantity: 1,
-      unit_measure: 'pcs',
-      unit_cost: 0,
-      supplier: '',
-      subtotal: 0
-    }]);
-  };
-
-  const removeItem = (index: number) => {
-    setItems(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateItem = (index: number, field: keyof BudgetItem, value: string | number) => {
-    setItems(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      
-      // Recalculate subtotal if quantity or unit_cost changes
-      if (field === 'quantity' || field === 'unit_cost') {
-        updated[index].subtotal = updated[index].quantity * updated[index].unit_cost;
-      }
-      
-      return updated;
-    });
-  };
 
   // File handling functions
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -467,132 +441,12 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
               </div>
 
               {/* Items Section */}
-              <div className="itemsSection">
-                <div className="itemsHeader">
-                  <h3>Budget Items (Optional)</h3>
-                  <button
-                    type="button"
-                    className="itemsToggle"
-                    onClick={() => setShowItems(!showItems)}
-                  >
-                    <i className={`ri-${showItems ? 'eye-off' : 'eye'}-line`} />
-                    {showItems ? 'Hide Items' : 'Add Items'}
-                  </button>
-                </div>
-
-                {showItems && (
-                  <>
-                    {items.map((item, index) => (
-                      <div key={index} className="itemContainer">
-                        <button
-                          type="button"
-                          className="removeItemBtn"
-                          onClick={() => removeItem(index)}
-                          disabled={items.length === 1}
-                          title="Remove Item"
-                        >
-                          <i className="ri-close-line" />
-                        </button>
-
-                        <div className="itemGrid">
-                          <div className="itemField">
-                            <label>Item Name<span className='requiredTags'> *</span></label>
-                            <input
-                              type="text"
-                              value={item.item_name}
-                              onChange={(e) => updateItem(index, 'item_name', e.target.value)}
-                              placeholder="Enter item name"
-                              required={showItems}
-                            />
-                          </div>
-
-                          <div className="itemField">
-                            <label>Quantity<span className='requiredTags'> *</span></label>
-                            <input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                              min="1"
-                              required={showItems}
-                            />
-                          </div>
-
-                          <div className="itemField">
-                            <label>Unit</label>
-                            <select
-                              value={item.unit_measure}
-                              onChange={(e) => updateItem(index, 'unit_measure', e.target.value)}
-                            >
-                              <option value="pcs">pcs</option>
-                              <option value="kg">kg</option>
-                              <option value="lbs">lbs</option>
-                              <option value="liters">liters</option>
-                              <option value="meters">meters</option>
-                              <option value="boxes">boxes</option>
-                              <option value="sets">sets</option>
-                              <option value="hours">hours</option>
-                              <option value="days">days</option>
-                            </select>
-                          </div>
-
-                          <div className="itemField">
-                            <label>Unit Cost<span className='requiredTags'> *</span></label>
-                            <input
-                              type="number"
-                              value={item.unit_cost}
-                              onChange={(e) => updateItem(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-                              min="0"
-                              step="0.01"
-                              required={showItems}
-                            />
-                          </div>
-
-                          <div className="itemField">
-                            <label>Supplier<span className='requiredTags'> *</span></label>
-                            <input
-                              type="text"
-                              value={item.supplier}
-                              onChange={(e) => updateItem(index, 'supplier', e.target.value)}
-                              placeholder="Enter supplier name"
-                              required={showItems}
-                            />
-                          </div>
-
-                          <div className="itemField">
-                            <label>Subtotal</label>
-                            <div className="subtotalField">
-                              ₱{item.subtotal.toLocaleString(undefined, { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      className="addItemBtn"
-                      onClick={addItem}
-                    >
-                      <i className="ri-add-line" /> Add Another Item
-                    </button>
-
-                    {items.length > 0 && (
-                      <div className="totalAmountDisplay">
-                        <h3>Total Amount from Items</h3>
-                        <div className="totalAmountValue">
-                          ₱{calculateTotalFromItems().toLocaleString(undefined, { 
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              <ItemsTable
+                items={items}
+                onItemsChange={setItems}
+                showItems={showItems}
+                onToggleItems={() => setShowItems(!showItems)}
+              />
 
               {/* Supporting Documents Section */}
               <div className="sectionHeader">Supporting Documents (Optional)</div>

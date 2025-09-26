@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+//@ts-ignore
 import "../../../styles/components/table.css";
+//@ts-ignore
 import "../../../styles/components/chips.css";
+//@ts-ignore
 import "../../../styles/budget-management/budgetRequest.css";
 import PaginationComponent from "../../../Components/pagination";
 import Swal from 'sweetalert2';

@@ -1,6 +1,7 @@
 'use client';
-
+//@ts-ignore
 import "./globals.css";
+//@ts-ignore
 import './styles/general/index.css';
 
 // Root Layout Component - Simplified for microservice embedding
