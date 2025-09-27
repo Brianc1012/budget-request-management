@@ -726,13 +726,13 @@ const BudgetRequestPage = () => {
   };
 
   if (loading) {
-          return (
-              <div className="card">
-                  <h1 className="title">Budget Request (Admin)</h1>
-                  <Loading />
-              </div>
-          );
-      }
+      return (
+          <div className="card">
+              <h1 className="title">Budget Request (Admin)</h1>
+              <Loading />
+          </div>
+      );
+  }
 
   return (
     <div className="card">
