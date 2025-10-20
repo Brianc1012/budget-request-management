@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatDate } from '../utility/dateFormatter';
+import { formatDate } from '../utils/dateFormatter';
 
 interface ModalHeaderProps {
   title: string;

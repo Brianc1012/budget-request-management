@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 //@ts-ignore
 import "../../../styles/budget-management/autoApproveRequest.css";
 import ModalHeader from '../../../Components/ModalHeader';
-import { showSuccess, showError } from '../../../utility/Alerts';
+import { showSuccess, showError } from '../../../utils/Alerts';
 
 // Types
 interface DepartmentAutoApproval {

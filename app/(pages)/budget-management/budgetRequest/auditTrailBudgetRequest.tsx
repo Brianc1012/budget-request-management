@@ -2,7 +2,7 @@
 
 import React from 'react';
 import "../../../styles/budget-management/auditTrailBudgetRequest.css";
-import { formatDateTime, formatDate } from '../../../utility/dateFormatter';
+import { formatDateTime, formatDate } from '../../../utils/dateFormatter';
 import ModalHeader from '../../../Components/ModalHeader';
 
 // Types

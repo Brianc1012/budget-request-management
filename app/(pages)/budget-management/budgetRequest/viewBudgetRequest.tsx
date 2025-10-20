@@ -2,7 +2,7 @@
 
 import React from 'react';
 import "../../../styles/budget-management/viewBudgetRequest.css";
-import { formatDate, formatDateTime } from '../../../utility/dateFormatter';
+import { formatDate, formatDateTime } from '../../../utils/dateFormatter';
 import ModalHeader from '../../../Components/ModalHeader';
 
 // Types - using the same as your existing BudgetRequest interface

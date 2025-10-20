@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 //@ts-ignore
 import "../../../styles/budget-management/addBudgetRequest.css";
-import { formatDate } from '../../../utility/dateFormatter';
-import { showSuccess, showError, showConfirmation } from '../../../utility/Alerts';
-import { validateField, isValidAmount, ValidationRule } from "../../../utility/validation";
+import { formatDate } from '../../../utils/dateFormatter';
+import { showSuccess, showError, showConfirmation } from '../../../utils/Alerts';
+import { validateField, isValidAmount, ValidationRule } from "../../../utils/validation";
 import ModalHeader from '../../../Components/ModalHeader';
 import ItemsTable, { Item } from '../../../Components/itemTable';
 
@@ -259,9 +259,9 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
           onClose={onClose} 
           showDateTime={true} 
         />
-
-        <form onSubmit={(e) => handleSubmit(e, false)}>
-          <div className="modalContent">
+        <div className="modalContent">
+          <form onSubmit={(e) => handleSubmit(e, false)}>
+          
             <div className="formInputs">
               
               {/* Basic Information Section */}
@@ -499,21 +499,21 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                 )}
               </div>
             </div>
-          </div>
 
-          <div className="modalButtons">
-            <button
-              type="button"
-              className="saveAsDraftButton"
-              onClick={(e) => handleSubmit(e, true)}
-            >
-              <i className="ri-draft-line" /> Save as Draft
-            </button>
-            <button type="submit" className="submitButton">
-              <i className="ri-send-plane-line" /> Submit for Approval
-            </button>
-          </div>
-        </form>
+            <div className="modalButtons">
+              <button
+                type="button"
+                className="saveAsDraftButton"
+                onClick={(e) => handleSubmit(e, true)}
+              >
+                <i className="ri-draft-line" /> Save as Draft
+              </button>
+              <button type="submit" className="submitButton">
+                <i className="ri-send-plane-line" /> Submit for Approval
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
