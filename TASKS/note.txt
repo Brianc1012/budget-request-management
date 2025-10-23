@@ -1,0 +1,537 @@
+
+// Example config keys:
+// - approval_workflow.auto_approve_threshold: Auto-approve if amount < threshold
+// - approval_workflow.sla_hours: Hours until request is overdue
+// - approval_workflow.escalation_hours: Hours before auto-escalation
+// - budget_rules.buffer_percentage: Default buffer % (5%)
+// - budget_rules.max_request_amount: Maximum single request amount
+// - budget_rules.reservation_expiry_days: Days until unused reservation expires
+// - notification.reminder_frequency_hours: Hours between reminders
+// - notification.smtp_from_email: Sender email address
+// - integration.finance_api_sync_interval_minutes: Budget sync frequency
+
+// ============================================================================
+// INTEGRATION NOTES FOR REPO 4
+// ============================================================================
+//
+// REST API Endpoints (to be implemented in Repo 4 backend):
+//
+// 1. POST /api/budget-requests
+//    - Create new budget request from any department
+//    - Headers: X-API-Key or JWT token (for service/user authentication)
+//    - Body: {
+//        department: "inventory",
+//        requestedBy: "user123",
+//        amountRequested: 50000.00,
+//        purpose: "Emergency parts procurement",
+//        justification: "Critical bus maintenance...",
+//        linkedPurchaseRequestId: 456, // Optional
+//        linkedPurchaseRequestRefNo: "PR-2025-001",
+//        priority: "urgent",
+//        itemBreakdown: [
+//          { itemName: "Brake Pads", quantity: 20, estimatedCost: 1000, supplierName: "ABC Parts" },
+//          { itemName: "Engine Oil", quantity: 50, estimatedCost: 2500, supplierName: "XYZ Supplies" }
+//        ]
+//      }
+//    - Response: { success: true, budgetRequest: {...}, requestCode: "BR-2025-001" }
+//    - Side effects:
+//      * Check department budget availability
+//      * Calculate budgetShortfall
+//      * Create BudgetRequestItemAllocation records
+//      * Send notification to Finance Admin
+//      * If urgent/emergency: Auto-escalate or fast-track
+//
+// 2. GET /api/budget-requests
+//    - Query budget requests with filters
+//    - Params: ?department=inventory&status=PENDING&page=1&limit=20&sortBy=createdAt&sortOrder=desc
+//    - Advanced filters: ?priority=urgent&isOverdue=true&minAmount=10000&maxAmount=100000
+//    - Response: { budgetRequests: [...], pagination: { total, page, pages, limit }, aggregates: { totalRequested, totalReserved } }
+//
+// 3. GET /api/budget-requests/:id
+//    - Get single budget request details
+//    - Response: {
+//        budgetRequest: {...},
+//        itemAllocations: [...],
+//        approvalHistory: [...],
+//        cachedBudget: { remainingAmount, utilizationRate },
+//        recommendations: { canAutoApprove, suggestedAction, riskLevel }
+//      }
+//
+// 4. PUT /api/budget-requests/:id
+//    - Update budget request (only if status = PENDING or DRAFT)
+//    - Body: {
+//        amountRequested: 55000.00,
+//        justification: "Updated justification...",
+//        itemBreakdown: [...]
+//      }
+//    - Side effects:
+//      * Recalculate budgetShortfall
+//      * Update BudgetRequestItemAllocation
+//      * Log change in BudgetRequestApprovalHistory
+//
+// 5. POST /api/budget-requests/:id/approve
+//    - Finance Admin approves request
+//    - Body: {
+//        reviewNotes: "Approved with 5% buffer",
+//        bufferPercentage: 5.0,
+//        itemAllocations: [
+//          { itemAllocationId: 1, allocatedAmount: 1050.00, status: "APPROVED" },
+//          { itemAllocationId: 2, allocatedAmount: 2625.00, status: "APPROVED" }
+//        ]
+//      }
+//    - Response: { success: true, budgetRequest: {...}, reservedAmount: 52500.00 }
+//    - Side effects:
+//      * Reserve budget in Finance Backend (via API call to Repo 2): POST /api/budgets/:id/reserve
+//      * Update BudgetRequest.status = APPROVED, isReserved = true
+//      * Update BudgetRequestItemAllocation statuses
+//      * Auto-approve linked Purchase Request in Finance (if exists)
+//      * Notify Inventory service that PR can proceed
+//      * Send approval notification to requester
+//      * Log approval in BudgetRequestApprovalHistory
+//      * Update CachedDepartmentBudget.reservedAmount
+//
+// 6. POST /api/budget-requests/:id/reject
+//    - Finance Admin rejects request
+//    - Body: {
+//        reviewNotes: "Insufficient budget for this period. Please prioritize essential items only.",
+//        alternativeOptions: "Consider splitting request across Q1 and Q2"
+//      }
+//    - Response: { success: true, budgetRequest: {...} }
+//    - Side effects:
+//      * Update BudgetRequest.status = REJECTED
+//      * Reject linked Purchase Request in Finance (if exists)
+//      * Notify Inventory service that PR is rejected
+//      * Send rejection notification to requester with review notes
+//      * Log rejection in BudgetRequestApprovalHistory
+//
+// 7. POST /api/budget-requests/:id/cancel
+//    - Requester cancels own request
+//    - Body: { cancellationReason: "Project postponed, no longer needed" }
+//    - Response: { success: true, budgetRequest: {...} }
+//    - Side effects:
+//      * Update BudgetRequest.isCancelled = true
+//      * If budget was reserved: Release it back to Finance Backend: POST /api/budgets/:id/release
+//      * Cancel linked Purchase Request (if exists and not yet processed)
+//      * Send cancellation notification to Finance Admin
+//      * Log cancellation in BudgetRequestApprovalHistory
+//
+// 8. POST /api/budget-requests/:id/submit
+//    - Submit draft budget request for review
+//    - Response: { success: true, budgetRequest: {...} }
+//    - Side effects:
+//      * Update BudgetRequest.isDraft = false, status = PENDING
+//      * Calculate SLA deadline based on priority
+//      * Send submission notification to Finance Admin
+//      * Start SLA timer
+//
+// 9. GET /api/budget-requests/budget-summary
+//    - Get department budget summary (from cached data)
+//    - Params: ?department=inventory&fiscalYear=2025&fiscalPeriod=Q1
+//    - Response: {
+//        department: "inventory",
+//        fiscalYear: 2025,
+//        fiscalPeriod: "Q1",
+//        allocatedAmount: 500000.00,
+//        usedAmount: 250000.00,
+//        reservedAmount: 100000.00,
+//        remainingAmount: 150000.00,
+//        utilizationRate: 70.0,
+//        availableRate: 30.0,
+//        burnRate: 3500.00, // per day
+//        projectedDepletion: "2025-03-15",
+//        daysRemaining: 45,
+//        isOverBudget: false,
+//        isNearingLimit: false,
+//        pendingRequests: {
+//          count: 5,
+//          totalAmount: 75000.00,
+//          urgentCount: 2
+//        },
+//        approvedRequests: {
+//          count: 12,
+//          totalAmount: 100000.00
+//        }
+//      }
+//
+// 10. GET /api/budget-requests/dashboard
+//     - Dashboard statistics for Finance Admin
+//     - Params: ?startDate=2025-01-01&endDate=2025-03-31&department=all
+//     - Response: {
+//         summary: {
+//           totalRequests: 45,
+//           pendingRequests: 8,
+//           approvedRequests: 30,
+//           rejectedRequests: 7,
+//           totalAmountRequested: 2500000.00,
+//           totalAmountApproved: 2000000.00,
+//           averageApprovalTime: "2.5 days"
+//         },
+//         byDepartment: [
+//           { department: "inventory", count: 20, totalAmount: 1200000.00, approvalRate: 85.0 },
+//           { department: "operations", count: 15, totalAmount: 800000.00, approvalRate: 90.0 },
+//           { department: "hr", count: 10, totalAmount: 500000.00, approvalRate: 95.0 }
+//         ],
+//         byPriority: [
+//           { priority: "emergency", count: 3, averageApprovalTime: "4 hours" },
+//           { priority: "urgent", count: 10, averageApprovalTime: "1 day" },
+//           { priority: "high", count: 15, averageApprovalTime: "2 days" }
+//         ],
+//         overdueRequests: [
+//           { id: 123, requestCode: "BR-2025-045", department: "inventory", daysOverdue: 3 }
+//         ],
+//         budgetHealth: [
+//           { department: "inventory", utilizationRate: 70.0, status: "healthy" },
+//           { department: "operations", utilizationRate: 92.0, status: "warning" }
+//         ]
+//       }
+//
+// 11. POST /api/budget-requests/sync-budgets (Internal - called by scheduled job)
+//     - Fetch latest budget data from Finance Backend (Repo 2)
+//     - Request: GET /api/budgets (from Repo 2)
+//     - Updates CachedDepartmentBudget table
+//     - Calculates derived metrics (burnRate, projectedDepletion, etc.)
+//     - Marks stale data (lastSyncedAt > syncFrequency)
+//     - Response: { success: true, synced: 4, failed: 0, duration: "1.2s" }
+//
+// 12. PUT /api/budget-requests/:id/escalate
+//     - Manual escalation by requester or auto-escalation by system
+//     - Body: { escalatedTo: "finance_manager_user_id", reason: "Urgent approval needed" }
+//     - Side effects:
+//       * Increment escalationLevel
+//       * Send escalation notification to escalatedTo user
+//       * Log escalation in BudgetRequestApprovalHistory
+//
+// 13. GET /api/budget-requests/:id/utilization
+//     - Check utilization of approved budget request
+//     - Response: {
+//         budgetRequest: {...},
+//         reservedAmount: 52500.00,
+//         actualAmountUtilized: 50000.00,
+//         remainingReserved: 2500.00,
+//         utilizationPercentage: 95.24,
+//         linkedPurchaseOrders: [
+//           { poId: 789, poRefNo: "PO-2025-100", amount: 25000.00, status: "CLOSED" },
+//           { poId: 790, poRefNo: "PO-2025-101", amount: 25000.00, status: "PENDING" }
+//         ]
+//       }
+//
+// Integration with Finance Backend (Repo 2):
+//
+// Budget Request microservice calls Finance API to:
+//
+// 1. GET /api/budgets?department=:department&fiscalYear=:year&fiscalPeriod=:period
+//    - Fetch current budget allocation and utilization
+//    - Called: When creating budget request, periodic sync
+//    - Response: { budget: { allocatedAmount, usedAmount, reservedAmount, remainingAmount } }
+//
+// 2. POST /api/budgets/:id/reserve
+//    - Reserve budget when budget request is approved
+//    - Body: { amount: 52500.00, budgetRequestId: 123, expiresAt: "2025-03-31" }
+//    - Response: { success: true, newRemainingAmount: 97500.00 }
+//    - Called: When Finance Admin approves budget request
+//
+// 3. POST /api/budgets/:id/release
+//    - Release reserved budget back to available pool
+//    - Body: { amount: 2500.00, budgetRequestId: 123, reason: "Partial utilization" }
+//    - Response: { success: true, newRemainingAmount: 100000.00 }
+//    - Called: When budget request cancelled, expired, or partially utilized
+//
+// 4. PUT /api/budgets/:id/utilize
+//    - Mark budget as utilized when PO is processed
+//    - Body: { amount: 50000.00, budgetRequestId: 123, purchaseOrderId: 789 }
+//    - Response: { success: true, newUsedAmount: 300000.00 }
+//    - Called: When linked Purchase Order is closed in Finance
+//
+// Integration with Inventory Service:
+//
+// When Inventory creates Purchase Request that exceeds budget:
+//
+// 1. Inventory checks available budget via:
+//    GET /api/budget-requests/budget-summary?department=inventory
+//
+// 2. If insufficient budget (estimatedAmount > remainingAmount):
+//    - Inventory calls: POST /api/budget-requests
+//    - Body includes: linkedPurchaseRequestId, itemBreakdown, supplierBreakdown
+//    - Budget Request microservice creates request with requiresBudgetApproval = true
+//
+// 3. Budget Request microservice creates budget request and awaits Finance Admin approval
+//
+// 4. On approval, Budget Request microservice:
+//    - Reserves budget in Finance (Repo 2)
+//    - Notifies Inventory via webhook: POST https://inventory-service.com/webhooks/budget-approved
+//    - Body: { budgetRequestCode: "BR-2025-001", purchaseRequestId: 456, approvedAmount: 52500.00 }
+//
+// 5. Inventory then submits PR to Finance for item-level approval:
+//    - Inventory calls Finance (Repo 2): POST /api/purchase-requests
+//    - Finance receives PR with linkedBudgetRequestId populated
+//
+// 6. On rejection, Budget Request microservice:
+//    - Notifies Inventory via webhook: POST https://inventory-service.com/webhooks/budget-rejected
+//    - Body: { budgetRequestCode: "BR-2025-001", purchaseRequestId: 456, rejectionReason: "..." }
+//
+// Integration with Audit Logs (Repo 3):
+//
+// - Install @company/audit-logs-middleware in Budget Request backend
+// - All CREATE, UPDATE, APPROVE, REJECT, CANCEL actions auto-logged
+// - Configuration:
+//   * AUDIT_LOGS_BACKEND_URL=https://audit-logs.company.com
+//   * AUDIT_LOGS_API_KEY=your-api-key
+//   * AUDIT_LOGS_SERVICE_NAME=budget-requests
+//
+// Scheduled Jobs (Background Workers):
+//
+// 1. Budget Sync Job (runs every 15 minutes)
+//    - Endpoint: POST /api/budget-requests/sync-budgets (internal)
+//    - Fetches latest budget data from Finance Backend
+//    - Updates CachedDepartmentBudget table
+//    - Marks stale data (lastSyncedAt > 30 minutes ago)
+//    - Calculates metrics: burnRate, projectedDepletion, utilizationRate
+//    - Triggers alerts if isOverBudget or isNearingLimit
+//
+// 2. Reservation Expiry Job (runs daily at midnight)
+//    - Finds: BudgetRequest where isReserved = true AND reservationExpiry < now() AND !isFullyUtilized
+//    - Actions for each:
+//      * Calculate remainingReserved = reservedAmount - actualAmountUtilized
+//      * Release unused budget: POST /api/budgets/:id/release to Finance
+//      * Update: isExpired = true
+//      * Send notification to requester: "Budget reservation expired, ₱X released"
+//      * Log expiry in BudgetRequestApprovalHistory
+//
+// 3. SLA Monitoring Job (runs hourly)
+//    - Finds: BudgetRequest where status = PENDING AND slaDeadline < now()
+//    - Actions for each:
+//      * Update: isOverdue = true
+//      * Send overdue notification to Finance Admin
+//      * If configured: Auto-escalate to next approval level
+//      * Log overdue status in BudgetRequestApprovalHistory
+//
+// 4. Reminder Job (runs twice daily: 9 AM, 3 PM)
+//    - Finds: BudgetRequest where status = PENDING AND createdAt > 24 hours ago
+//    - Sends reminder notification to Finance Admin
+//    - Includes: Request summary, days pending, requester urgency notes
+//
+// 5. Utilization Tracking Job (runs every 4 hours)
+//    - For each: BudgetRequest where isReserved = true AND status = APPROVED
+//    - Queries Finance Backend: GET /api/purchase-orders?budgetRequestId=:id
+//    - Calculates actualAmountUtilized from closed POs
+//    - Updates: actualAmountUtilized, remainingReserved, isFullyUtilized
+//    - If fully utilized: Releases excess buffer back to Finance
+//
+// 6. Cleanup Job (runs weekly on Sunday midnight)
+//    - Archives old audit logs: ApiAccessLog older than 90 days
+//    - Soft-delete old notifications: BudgetRequestNotification older than 180 days
+//    - Cleans up soft-deleted records: isDeleted = true AND deletedAt > 30 days
+//    - Purges expired drafts: isDraft = true AND createdAt > 30 days
+//
+// 7. Report Generation Job (runs monthly on 1st at 2 AM)
+//    - Generates monthly budget request report
+//    - Aggregates: Total requests, approval rate, average time, by department
+//    - Exports to PDF/Excel
+//    - Sends to Finance Admin and department heads
+//
+// Environment Variables:
+//
+// - BUDGET_REQUEST_DATABASE_URL: PostgreSQL connection string
+// - FINANCE_BACKEND_URL: Main Finance API base URL (Repo 2)
+//   Example: https://finance-api.company.com
+// - FINANCE_API_KEY: API key for authenticating to Finance Backend
+// - INVENTORY_BACKEND_URL: Inventory API base URL
+//   Example: https://inventory-api.company.com
+// - HR_BACKEND_URL: HR API base URL
+//   Example: https://hr-api.company.com
+// - OPERATIONS_BACKEND_URL: Operations API base URL
+//   Example: https://operations-api.company.com
+// - AUDIT_LOGS_BACKEND_URL: Audit Logs API URL (Repo 3)
+//   Example: https://audit-logs.company.com
+// - AUDIT_LOGS_API_KEY: API key for Audit Logs microservice
+// - JWT_SECRET: For user authentication tokens
+// - JWT_EXPIRES_IN: Token expiration (default: 24h)
+// - SMTP_HOST: Email server host
+// - SMTP_PORT: Email server port (587)
+// - SMTP_USER: SMTP username
+// - SMTP_PASS: SMTP password
+// - SMTP_FROM_EMAIL: Sender email address
+// - SMTP_FROM_NAME: Sender display name
+// - BUDGET_SYNC_INTERVAL_MINUTES: How often to sync budget data (default: 15)
+// - RESERVATION_BUFFER_PERCENTAGE: Default buffer % on approval (default: 5)
+// - RESERVATION_EXPIRY_DAYS: Days until unused reservation expires (default: 30)
+// - SLA_HOURS_REGULAR: SLA hours for regular priority (default: 72)
+// - SLA_HOURS_URGENT: SLA hours for urgent priority (default: 24)
+// - SLA_HOURS_EMERGENCY: SLA hours for emergency priority (default: 4)
+// - ESCALATION_HOURS: Hours before auto-escalation (default: 48)
+// - AUTO_APPROVE_THRESHOLD: Amount below which to auto-approve (default: 0 = disabled)
+// - MAX_REQUEST_AMOUNT: Maximum single request amount (default: null = no limit)
+// - WEBHOOK_SECRET: Secret for verifying webhook signatures
+// - WEBHOOK_RETRY_ATTEMPTS: Max webhook delivery retries (default: 3)
+// - ENABLE_WEBHOOKS: Enable webhook notifications (default: true)
+// - ENABLE_EMAIL_NOTIFICATIONS: Enable email notifications (default: true)
+// - LOG_LEVEL: Logging level (debug | info | warn | error)
+// - NODE_ENV: Environment (development | staging | production)
+// - PORT: Server port (default: 4000)
+// - CORS_ORIGIN: Allowed CORS origins (comma-separated)
+// - RATE_LIMIT_WINDOW_MS: Rate limit window in milliseconds (default: 900000 = 15 min)
+// - RATE_LIMIT_MAX_REQUESTS: Max requests per window (default: 100)
+//
+// Webhook Events (Budget Request → Inventory/Other Services):
+//
+// 1. budget_request.created
+//    - Payload: { eventType, budgetRequest, timestamp }
+//    - Recipients: Department that created the request
+//
+// 2. budget_request.submitted
+//    - Payload: { eventType, budgetRequest, slaDeadline, timestamp }
+//    - Recipients: Finance Admin
+//
+// 3. budget_request.approved
+//    - Payload: {
+//        eventType: "budget_request.approved",
+//        budgetRequest: {...},
+//        reservedAmount: 52500.00,
+//        linkedPurchaseRequestId: 456,
+//        timestamp: "2025-01-15T10:30:00Z"
+//      }
+//    - Recipients: Requester, Inventory service (if linked PR)
+//
+// 4. budget_request.rejected
+//    - Payload: {
+//        eventType: "budget_request.rejected",
+//        budgetRequest: {...},
+//        rejectionReason: "...",
+//        linkedPurchaseRequestId: 456,
+//        timestamp: "2025-01-15T10:30:00Z"
+//      }
+//    - Recipients: Requester, Inventory service (if linked PR)
+//
+// 5. budget_request.cancelled
+//    - Payload: { eventType, budgetRequest, cancellationReason, timestamp }
+//    - Recipients: Finance Admin, linked services
+//
+// 6. budget_request.expired
+//    - Payload: { eventType, budgetRequest, expiredAmount, timestamp }
+//    - Recipients: Requester, Finance Admin
+//
+// 7. budget_request.overdue
+//    - Payload: { eventType, budgetRequest, daysOverdue, slaDeadline, timestamp }
+//    - Recipients: Finance Admin, escalation contacts
+//
+// 8. budget_request.escalated
+//    - Payload: { eventType, budgetRequest, escalationLevel, escalatedTo, timestamp }
+//    - Recipients: Escalation recipient
+//
+// Frontend Integration (Repo 4 Frontend):
+//
+// React UI for creating and viewing budget requests with:
+//
+// 1. Budget Request Form
+//    - Multi-step wizard: (1) Basic Info → (2) Item Details → (3) Justification → (4) Review
+//    - Real-time budget availability checker
+//    - Item-by-item cost breakdown with supplier selection
+//    - File upload for supporting documents
+//    - Priority selection with urgency explanation
+//    - Draft save functionality
+//
+// 2. Budget Request List
+//    - Filterable table: By status, department, priority, date range
+//    - Sortable columns: Date, amount, priority, status
+//    - Quick actions: View, Edit (if draft), Cancel, Approve/Reject (admin)
+//    - Export to Excel/PDF
+//
+// 3. Budget Request Details Page
+//    - Full request information
+//    - Item-level breakdown with supplier details
+//    - Approval history timeline
+//    - Comments/notes section
+//    - Linked Purchase Request viewer (if applicable)
+//    - Action buttons: Edit, Cancel, Approve, Reject (role-based)
+//
+// 4. Approval Interface (Finance Admin)
+//    - Side-by-side view: Request details + Budget availability
+//    - Item-level approval controls (approve/reject/modify per item)
+//    - Budget impact calculator
+//    - Quick approval for low-risk requests
+//    - Batch approval for multiple requests
+//
+// 5. Dashboard
+//    - Budget utilization charts by department
+//    - Pending requests queue with SLA indicators
+//    - Overdue requests alert banner
+//    - Budget health indicators (traffic light: green/yellow/red)
+//    - Recent activity feed
+//    - Quick stats: Total requests, approval rate, average time
+//
+// 6. Budget Summary Page
+//    - Department-wise budget allocation and utilization
+//    - Burn rate visualization
+//    - Projected budget depletion timeline
+//    - Pending and reserved amounts
+//    - Historical trends (monthly/quarterly)
+//
+// 7. Notifications Center
+//    - Real-time notifications via WebSocket
+//    - Email notification preferences
+//    - Notification history
+//    - Mark as read/unread
+//
+// Role-Based Access Control:
+//
+// 1. Department User (Requester):
+//    - Create budget requests
+//    - View own requests
+//    - Edit draft requests
+//    - Cancel own pending requests
+//    - View department budget summary
+//
+// 2. Department Manager:
+//    - All Department User permissions
+//    - View all requests from their department
+//    - Pre-approve high-value requests (optional workflow)
+//
+// 3. Finance Admin:
+//    - View all budget requests from all departments
+//    - Approve/reject budget requests
+//    - Modify item-level allocations
+//    - View complete budget summary for all departments
+//    - Generate reports
+//    - Configure system settings
+//
+// 4. Super Admin:
+//    - All Finance Admin permissions
+//    - Manage system configurations
+//    - View audit logs
+//    - Override approvals
+//    - Manage user permissions
+//    - Force-close or manually adjust requests
+//
+// Security Considerations:
+//
+// 1. Authentication:
+//    - JWT tokens for user sessions
+//    - API keys for service-to-service communication
+//    - Token refresh mechanism
+//    - Session timeout and invalidation
+//
+// 2. Authorization:
+//    - Role-based access control (RBAC)
+//    - Department-level data isolation
+//    - Action-level permissions
+//    - Audit trail for all sensitive operations
+//
+// 3. Data Protection:
+//    - Encrypt sensitive data at rest
+//    - TLS/SSL for data in transit
+//    - Sanitize user inputs
+//    - Prevent SQL injection via Prisma ORM
+//    - Rate limiting on API endpoints
+//
+// 4. Webhook Security:
+//    - HMAC signature verification
+//    - Timestamp validation (prevent replay attacks)
+//    - IP whitelist for webhook receivers
+//    - Retry with exponential backoff
+//
+// 5. API Security:
+//    - CORS configuration
+//    - API key rotation
+//    - Request size limits
+//    - Timeout configurations
+//    - DDoS protection
