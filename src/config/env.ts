@@ -1,5 +1,9 @@
 // src/config/env.ts
+import { config } from 'dotenv';
 import { z } from 'zod';
+
+// Load environment variables from .env file
+config();
 
 const envSchema = z.object({
   // Server
@@ -17,6 +21,7 @@ const envSchema = z.object({
   
   // JWT
   JWT_SECRET: z.string().min(32),
+  JWT_DISABLED: z.string().transform(val => val === 'true').default('false'),
   
   // External Services
   FINANCE_API_URL: z.string().url().optional(),
