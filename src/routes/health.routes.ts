@@ -10,8 +10,15 @@ router.get('/', async (req: Request, res: Response) => {
     // Check database
     await prisma.$queryRaw`SELECT 1`;
     
-    // Check Redis
-    await redis.ping();
+    // Check Redis (optional - don't fail if unavailable)
+    let redisStatus = 'unavailable';
+    try {
+      await redis.ping();
+      redisStatus = 'healthy';
+    } catch (redisError) {
+      // Redis is optional - don't fail health check
+      redisStatus = 'unavailable (cache fallback active)';
+    }
 
     res.status(200).json({
       success: true,
@@ -20,7 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
       service: 'budget-request-microservice',
       checks: {
         database: 'healthy',
-        redis: 'healthy'
+        redis: redisStatus
       }
     });
   } catch (error: any) {

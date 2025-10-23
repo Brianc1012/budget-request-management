@@ -2,6 +2,8 @@
 import app from './app';
 import { env } from './config/env';
 import { startAllJobs, stopAllJobs } from './jobs';
+import cache from './utils/cache.util';
+import { prisma } from './config/database';
 
 const PORT = process.env.PORT || 4005;
 
@@ -25,12 +27,27 @@ app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-function gracefulShutdown(signal: string) {
+async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received, shutting down gracefully...`);
   
   // Stop all scheduled jobs
   if (scheduledJobs) {
     stopAllJobs(scheduledJobs);
+  }
+
+  // Disconnect from Redis cache
+  try {
+    await cache.disconnect();
+  } catch (error) {
+    console.error('Error disconnecting cache:', error);
+  }
+
+  // Disconnect from database
+  try {
+    await prisma.$disconnect();
+    console.log('✅ Database connection closed gracefully');
+  } catch (error) {
+    console.error('Error disconnecting database:', error);
   }
 
   process.exit(0);

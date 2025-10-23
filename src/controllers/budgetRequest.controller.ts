@@ -5,6 +5,7 @@ import auditLogger from '../services/auditLogger.service';
 import webhookDispatcher from '../webhooks/dispatcher';
 import { applyAccessFilter } from '../middlewares/roleAccess.middleware';
 import { successResponse, successResponseWithPagination, errorResponse, notFoundResponse, forbiddenResponse } from '../utils/response.util';
+import cache from '../utils/cache.util';
 
 export async function listBudgetRequests(req: Request, res: Response) {
   try {
@@ -117,6 +118,10 @@ export async function createBudgetRequest(req: Request, res: Response) {
       amountRequested: budgetRequest.amountRequested
     }, req.user!);
 
+    // Invalidate related caches
+    await cache.invalidateBudgetRequests();
+    await cache.invalidateAnalytics();
+
     // Dispatch webhook
     await webhookDispatcher.dispatch('budget_request.created', {
       budgetRequestId: budgetRequest.id,
@@ -168,6 +173,10 @@ export async function submitBudgetRequest(req: Request, res: Response) {
       amountRequested: updated.amountRequested
     }, req.user!);
 
+    // Invalidate related caches
+    await cache.invalidateBudgetRequests();
+    await cache.invalidateAnalytics();
+
     // Dispatch webhook
     await webhookDispatcher.dispatch('budget_request.submitted', {
       budgetRequestId: updated.id,
@@ -211,6 +220,10 @@ export async function approveBudgetRequest(req: Request, res: Response) {
       reservedAmount: approved.reservedAmount,
       approvedBy: req.user!.id
     }, req.user!);
+
+    // Invalidate related caches
+    await cache.invalidateBudgetRequests();
+    await cache.invalidateAnalytics();
 
     // Dispatch webhook
     await webhookDispatcher.dispatch('budget_request.approved', {
@@ -256,6 +269,10 @@ export async function rejectBudgetRequest(req: Request, res: Response) {
       rejectedBy: req.user!.id,
       reason: req.body.reviewNotes
     }, req.user!);
+
+    // Invalidate related caches
+    await cache.invalidateBudgetRequests();
+    await cache.invalidateAnalytics();
 
     // Dispatch webhook
     await webhookDispatcher.dispatch('budget_request.rejected', {
