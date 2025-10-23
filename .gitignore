@@ -72,4 +72,5 @@ next-env.d.ts
 ocr_service/
 ocr_service
 
-TASKS
+/TASKS/
+TASKS/
