@@ -2,68 +2,82 @@
 import axios from 'axios';
 import { AUDIT_LOGS_API_URL, AUDIT_API_KEY } from '../config/constants';
 import { UserContext } from '../types/express';
+import { generateSimpleIdempotencyKey } from '../lib/idempotency';
 
 class AuditLoggerService {
-  async log(action: string, data: any, user: UserContext) {
+  async log(action: string, data: any, user: UserContext, authToken?: string) {
     try {
+      const headers: any = {
+        'x-api-key': AUDIT_API_KEY,
+        'Content-Type': 'application/json',
+      };
+
+      // Forward auth token if provided
+      if (authToken) {
+        headers['Authorization'] = authToken;
+      }
+
       await axios.post(
         `${AUDIT_LOGS_API_URL}/api/audit-logs`,
         {
-          service: 'budget-request-microservice',
+          eventId: generateSimpleIdempotencyKey(), // Unique event ID for idempotency
+          service: 'budget',
+          module: 'budget-management',
           action,
-          userId: user.id,
-          username: user.username,
-          userRole: user.role,
+          user: {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            department: user.department || 'unknown',
+          },
           resourceType: 'BudgetRequest',
-          resourceId: data.id || data.budgetRequestId,
-          details: data,
-          timestamp: new Date().toISOString()
+          resourceId: data.id || data.budgetRequestId || data.requestCode,
+          payload: data,
+          timestamp: new Date().toISOString(),
+          meta: {
+            source: 'api',
+          },
         },
-        {
-          headers: {
-            'x-api-key': AUDIT_API_KEY,
-            'Content-Type': 'application/json'
-          }
-        }
+        { headers }
       );
     } catch (error: any) {
-      console.error('Audit log failed:', error.message);
+      console.error('❌ Audit log failed:', error.message);
       // Don't throw - audit logging shouldn't break the main flow
     }
   }
 
   // Convenience methods
-  create(data: any, user: UserContext) {
-    return this.log('CREATE', { newValues: data, ...data }, user);
+  create(data: any, user: UserContext, authToken?: string) {
+    return this.log('CREATE', { newValues: data, ...data }, user, authToken);
   }
 
-  update(id: number, oldData: any, newData: any, user: UserContext) {
+  update(id: number, oldData: any, newData: any, user: UserContext, authToken?: string) {
     return this.log('UPDATE', {
       id,
       oldValues: oldData,
       newValues: newData,
       changedFields: Object.keys(newData)
-    }, user);
+    }, user, authToken);
   }
 
-  delete(id: number, data: any, user: UserContext) {
-    return this.log('DELETE', { id, oldValues: data }, user);
+  delete(id: number, data: any, user: UserContext, authToken?: string) {
+    return this.log('DELETE', { id, oldValues: data }, user, authToken);
   }
 
-  approve(data: any, user: UserContext) {
-    return this.log('APPROVE', data, user);
+  approve(data: any, user: UserContext, authToken?: string) {
+    return this.log('APPROVE', data, user, authToken);
   }
 
-  reject(data: any, user: UserContext) {
-    return this.log('REJECT', data, user);
+  reject(data: any, user: UserContext, authToken?: string) {
+    return this.log('REJECT', data, user, authToken);
   }
 
-  view(data: any, user: UserContext) {
-    return this.log('VIEW', data, user);
+  view(data: any, user: UserContext, authToken?: string) {
+    return this.log('VIEW', data, user, authToken);
   }
 
-  submit(data: any, user: UserContext) {
-    return this.log('SUBMIT', data, user);
+  submit(data: any, user: UserContext, authToken?: string) {
+    return this.log('SUBMIT', data, user, authToken);
   }
 }
 

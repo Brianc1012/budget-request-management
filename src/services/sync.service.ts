@@ -3,6 +3,8 @@ import axios from 'axios';
 import { prisma } from '../config/database';
 import cacheService from './cache.service';
 import { FINANCE_API_URL, FINANCE_API_KEY } from '../config/constants';
+import { createHttpClient, makeRequest } from '../lib/http.client';
+import { generateIdempotencyKey } from '../lib/idempotency';
 
 class SyncService {
   // Sync department budget from Finance Main
@@ -24,7 +26,7 @@ class SyncService {
         }
       );
 
-      const financeData = response.data.data;
+      const financeData = (response.data as any).data;
 
       // Upsert into cached budget table
       const budgetData = await prisma.cachedDepartmentBudget.upsert({
@@ -90,8 +92,11 @@ class SyncService {
     }
   }
 
-  // Notify Finance Main of budget reservation
-  async notifyBudgetReservation(budgetRequestId: number) {
+  // Notify Finance Main of budget reservation with idempotency and auth forwarding
+  async notifyBudgetReservation(
+    budgetRequestId: number,
+    authToken?: string
+  ) {
     try {
       const budgetRequest = await prisma.budgetRequest.findUnique({
         where: { id: budgetRequestId }
@@ -101,28 +106,42 @@ class SyncService {
         throw new Error('Budget request not found');
       }
 
+      // Generate idempotency key
+      const idempotencyKey = generateIdempotencyKey(
+        'budget',
+        'reserve',
+        budgetRequest.id
+      );
+
+      // Make request with headers
+      const headers: any = {
+        'x-api-key': FINANCE_API_KEY,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      };
+
+      if (authToken) {
+        headers['Authorization'] = authToken;
+      }
+
       await axios.post(
-        `${FINANCE_API_URL}/api/budgets/reserve`,
+        `${FINANCE_API_URL}/api/integration/budgets/reserve`,
         {
+          budgetRequestId: budgetRequest.id,
           department: budgetRequest.department,
           fiscalYear: budgetRequest.fiscalYear,
           fiscalPeriod: budgetRequest.fiscalPeriod,
           amount: Number(budgetRequest.reservedAmount),
-          budgetRequestId: budgetRequest.id,
           requestCode: budgetRequest.requestCode,
-          expiresAt: budgetRequest.reservationExpiry
+          expiresAt: budgetRequest.reservationExpiry,
+          idempotencyKey,
         },
-        {
-          headers: {
-            'x-api-key': FINANCE_API_KEY,
-            'Content-Type': 'application/json'
-          }
-        }
+        { headers }
       );
 
-      console.log(`Budget reservation notified for BR-${budgetRequestId}`);
+      console.log(`✅ Budget reservation notified for BR-${budgetRequestId}`);
     } catch (error: any) {
-      console.error('Budget reservation notification failed:', error.message);
+      console.error('❌ Budget reservation notification failed:', error.message);
       // Don't throw - notification failure shouldn't break the approval flow
     }
   }
