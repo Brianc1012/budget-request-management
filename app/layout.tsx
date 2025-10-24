@@ -3,6 +3,8 @@
 import "./globals.css";
 //@ts-ignore
 import './styles/general/index.css';
+import { AuthProvider } from './contexts/AuthContext';
+import MockAuthSelector from './Components/MockAuthSelector';
 
 // Root Layout Component - Simplified for microservice embedding
 export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
@@ -26,9 +28,14 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
       </head>
 
       <body>
-        <div className="microservice-container">
-          {children}
-        </div>
+        <AuthProvider>
+          {/* Mock Auth Selector for testing (only visible when JWT_DISABLED=true) */}
+          <MockAuthSelector />
+          
+          <div className="microservice-container">
+            {children}
+          </div>
+        </AuthProvider>
       </body>
 
 

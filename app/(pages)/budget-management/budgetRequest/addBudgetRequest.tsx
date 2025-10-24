@@ -15,6 +15,8 @@ interface BudgetItem {
   unit_cost: number;
   supplier: string;
   subtotal: number;
+  itemPriority?: 'must_have' | 'should_have' | 'nice_to_have';
+  isEssential?: boolean;
 }
 
 interface NewBudgetRequest {
@@ -27,6 +29,8 @@ interface NewBudgetRequest {
   fiscalYear: number;
   fiscalPeriod: string;
   category: string;
+  priority?: string;
+  urgencyReason?: string;
   start_date?: string;
   end_date?: string;
   items?: BudgetItem[];
@@ -41,32 +45,26 @@ interface AddBudgetRequestProps {
   currentUser: string;
 }
 
-type FieldName = 'purpose' | 'justification' | 'amountRequested' | 'start_date' | 'end_date' | 'fiscalPeriod' | 'category';
+type FieldName = 'purpose' | 'justification' | 'amountRequested' | 'start_date' | 'end_date' | 'fiscalPeriod' | 'category' | 'priority' | 'urgencyReason';
 
 const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
   onClose,
   onAddBudgetRequest,
   currentUser
 }) => {
-  const [errors, setErrors] = useState<Record<FieldName, string[]>>({
-    purpose: [],
-    justification: [],
-    amountRequested: [],
-    start_date: [],
-    end_date: [],
-    fiscalPeriod: [],
-    category: []
-  });
+  console.log('AddBudgetRequest component mounted', { onClose, onAddBudgetRequest, currentUser });
 
   const [formData, setFormData] = useState({
     purpose: '',
     justification: '',
-    department: 'Operations', // Auto-filled
-    createdByName: 'Admin User', // Auto-filled
-    createdByRole: 'Administrator', // Auto-filled
+    department: 'Finance', // Auto-filled
+    createdByName: 'Finance Admin', // Auto-filled
+    createdByRole: 'Admin', // Auto-filled
     fiscalYear: 2025,
-    fiscalPeriod: 'Q1',
-    category: 'Operations',
+    fiscalPeriod: '',
+    category: '',
+    priority: '',
+    urgencyReason: '',
     amountRequested: 0,
     start_date: '',
     end_date: '',
@@ -77,35 +75,132 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
   const [showItems, setShowItems] = useState(false);
   const [supportingDocuments, setSupportingDocuments] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [isFormValid, setIsFormValid] = useState(false);
 
   const validationRules: Record<FieldName, ValidationRule> = {
-    purpose: { required: true, label: "Budget Purpose" },
-    justification: { required: true, label: "Justification" },
+    purpose: { 
+      required: true, 
+      label: "Budget Purpose",
+      min: 10,
+      max: 500
+    },
+    justification: { 
+      required: true, 
+      label: "Justification",
+      max: 5000
+    },
     amountRequested: {
       required: true,
       min: 0.01,
+      max: 10000000,
       label: "Amount Requested",
       custom: (v: unknown) => {
         const numValue = typeof v === 'number' ? v : Number(v);
-        return isValidAmount(numValue) ? null : "Amount must be greater than 0.";
+        if (!isValidAmount(numValue)) return "Amount must be greater than 0.";
+        if (numValue > 10000000) return "Amount must not exceed ₱10,000,000.";
+        return null;
       }
     },
     start_date: { required: false, label: "Start Date" },
     end_date: { required: false, label: "End Date" },
     fiscalPeriod: { required: true, label: "Fiscal Period" },
-    category: { required: true, label: "Category" }
+    category: { required: true, label: "Category" },
+    priority: { required: false, label: "Priority" },
+    urgencyReason: { 
+      required: false, 
+      label: "Urgency Reason",
+      max: 1000
+    }
   };
+
+  // Comprehensive validation function
+  const validateForm = (data: typeof formData, checkAllFields: boolean = false): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    // Validate purpose
+    if (!data.purpose || data.purpose.trim() === '') {
+      if (checkAllFields) errors.purpose = 'Budget purpose is required';
+    } else if (data.purpose.length < 10) {
+      errors.purpose = 'Purpose must be at least 10 characters';
+    } else if (data.purpose.length > 500) {
+      errors.purpose = 'Purpose must not exceed 500 characters';
+    }
+
+    // Validate justification
+    if (!data.justification || data.justification.trim() === '') {
+      if (checkAllFields) errors.justification = 'Justification is required';
+    } else if (data.justification.length > 5000) {
+      errors.justification = 'Justification must not exceed 5000 characters';
+    }
+
+    // Validate amount
+    if (data.amountRequested <= 0) {
+      if (checkAllFields) errors.amountRequested = 'Amount must be greater than 0';
+    } else if (data.amountRequested > 10000000) {
+      errors.amountRequested = 'Amount must not exceed ₱10,000,000';
+    }
+
+    // Validate amount against items total
+    if (showItems && items.length > 0) {
+      const itemsTotal = calculateTotalFromItems();
+      if (data.amountRequested < itemsTotal) {
+        errors.amountRequested = `Amount must be at least ₱${itemsTotal.toLocaleString()} (items total)`;
+      }
+    }
+
+    // Validate fiscal period
+    if (!data.fiscalPeriod || data.fiscalPeriod === '') {
+      if (checkAllFields) errors.fiscalPeriod = 'Fiscal period is required';
+    }
+
+    // Validate category
+    if (!data.category || data.category === '') {
+      if (checkAllFields) errors.category = 'Category is required';
+    }
+
+    // Validate urgency reason if priority is high or urgent
+    if ((data.priority === 'high' || data.priority === 'urgent') && (!data.urgencyReason || data.urgencyReason.trim() === '')) {
+      errors.urgencyReason = 'Urgency reason is required for high/urgent priority';
+    } else if (data.urgencyReason && data.urgencyReason.length > 1000) {
+      errors.urgencyReason = 'Urgency reason must not exceed 1000 characters';
+    }
+
+    // Validate date range
+    if (data.start_date && data.end_date) {
+      const startDate = new Date(data.start_date);
+      const endDate = new Date(data.end_date);
+      if (startDate >= endDate) {
+        errors.end_date = 'End date must be after start date';
+      }
+    }
+
+    return errors;
+  };
+
+  // Update validation state whenever form data changes
+  useEffect(() => {
+    const errors = validateForm(formData, false);
+    setValidationErrors(errors);
+    
+    // Form is valid if there are no errors
+    setIsFormValid(Object.keys(errors).length === 0);
+  }, [formData, items, showItems]);
 
   // Calculate total from items
   const calculateTotalFromItems = () => {
     return items.reduce((total, item) => total + item.subtotal, 0);
   };
 
-  // Update total amount when items change
+  // Update amount requested when items change
   useEffect(() => {
     if (showItems && items.length > 0) {
       const itemsTotal = calculateTotalFromItems();
-      setFormData(prev => ({ ...prev, total_amount: itemsTotal }));
+      
+      // Auto-fill if amountRequested is 0 or less than items total
+      if (formData.amountRequested === 0 || formData.amountRequested < itemsTotal) {
+        setFormData(prev => ({ ...prev, amountRequested: itemsTotal }));
+      }
     }
   }, [items, showItems]);
 
@@ -113,7 +208,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
     const { name, value } = e.target;
     let newValue: string | number = value;
 
-    if (name === 'total_amount') {
+    if (name === 'amountRequested') {
       newValue = parseFloat(value) || 0;
     }
 
@@ -121,14 +216,6 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
       ...prev,
       [name]: newValue
     }));
-
-    // Validate field
-    if (validationRules[name as FieldName]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: validateField(newValue, validationRules[name as FieldName])
-      }));
-    }
   };
 
   // Item management functions
@@ -139,7 +226,9 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
       unit_measure: 'pcs',
       unit_cost: 0,
       supplier: '',
-      subtotal: 0
+      subtotal: 0,
+      itemPriority: undefined,
+      isEssential: false
     }]);
   };
 
@@ -147,7 +236,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateItem = (index: number, field: keyof BudgetItem, value: string | number) => {
+  const updateItem = (index: number, field: keyof BudgetItem, value: string | number | boolean) => {
     setItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -214,19 +303,49 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleSubmit = async (e: React.FormEvent, saveAsDraft: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent, saveAsDraft: boolean = false) => {
     e.preventDefault();
+    console.log('handleSubmit called', { saveAsDraft, formData, items });
 
-    // Validate required fields
-    const requiredFields = ['title', 'description', 'total_amount', 'start_date', 'end_date'];
-    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    // Validate required fields only if not saving as draft
+    if (!saveAsDraft) {
+      const requiredFieldsToCheck: (keyof typeof formData)[] = ['purpose', 'justification', 'amountRequested', 'fiscalPeriod', 'category'];
+      const missingFields = requiredFieldsToCheck.filter(field => {
+        const value = formData[field];
+        if (field === 'amountRequested') {
+          return !value || Number(value) <= 0;
+        }
+        return !value || value === '';
+      });
 
-    if (missingFields.length > 0 && !saveAsDraft) {
-      showError('Please fill in all required fields', 'Validation Error');
-      return;
+      console.log('Validation check:', { missingFields, formData });
+
+      if (missingFields.length > 0) {
+        const fieldLabels = missingFields.map(f => validationRules[f as FieldName]?.label || f).join(', ');
+        showError(`Please fill in all required fields: ${fieldLabels}`, 'Validation Error');
+        return;
+      }
+
+      // Validate amount
+      if (formData.amountRequested <= 0) {
+        showError('Amount requested must be greater than 0', 'Invalid Amount');
+        return;
+      }
+
+      // Validate amount against items total
+      if (showItems && items.length > 0) {
+        const itemsTotal = calculateTotalFromItems();
+        if (formData.amountRequested < itemsTotal) {
+          showError(
+            `Amount requested (₱${formData.amountRequested.toLocaleString()}) must be greater than or equal to items total (₱${itemsTotal.toLocaleString()})`,
+            'Invalid Amount'
+          );
+          return;
+        }
+      }
     }
 
-    // Validate date range
+    // Validate date range if both dates are provided
     if (formData.start_date && formData.end_date) {
       const startDate = new Date(formData.start_date);
       const endDate = new Date(formData.end_date);
@@ -237,8 +356,8 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
       }
     }
 
-    // Validate items if they exist
-    if (showItems && items.length > 0) {
+    // Validate items if they exist (only when not saving as draft)
+    if (showItems && items.length > 0 && !saveAsDraft) {
       const invalidItems = items.filter(item => 
         !item.item_name || 
         item.quantity <= 0 || 
@@ -246,17 +365,21 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
         !item.supplier
       );
 
-      if (invalidItems.length > 0 && !saveAsDraft) {
+      if (invalidItems.length > 0) {
         showError('Please complete all item fields or remove incomplete items', 'Invalid Items');
         return;
       }
     }
 
     const action = saveAsDraft ? 'save as draft' : 'submit for approval';
+    console.log('Showing confirmation dialog for:', action);
+    
     const result = await showConfirmation(
       `Are you sure you want to ${action} this budget request?`,
       `Confirm ${saveAsDraft ? 'Draft' : 'Submit'}`
     );
+
+    console.log('Confirmation result:', result);
 
     if (result.isConfirmed) {
       try {
@@ -267,6 +390,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
           supporting_documents: supportingDocuments.length > 0 ? supportingDocuments : undefined
         };
 
+        console.log('Sending payload:', payload);
         await onAddBudgetRequest(payload);
         showSuccess(
           `Budget request ${saveAsDraft ? 'saved as draft' : 'submitted for approval'} successfully`, 
@@ -367,6 +491,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                     required
                     className="formSelect"
                   >
+                    <option value="">Select Fiscal Period</option>
                     <option value="Q1">Quarter 1 (Q1)</option>
                     <option value="Q2">Quarter 2 (Q2)</option>
                     <option value="Q3">Quarter 3 (Q3)</option>
@@ -375,9 +500,9 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                     <option value="H2">Half 2 (H2)</option>
                     <option value="FY">Full Year (FY)</option>
                   </select>
-                  {errors.fiscalPeriod?.map((msg: string, i: number) => (
-                    <div className="error-message" key={i}>{msg}</div>
-                  ))}
+                  {validationErrors.fiscalPeriod && (
+                    <div className="error-message">{validationErrors.fiscalPeriod}</div>
+                  )}
                 </div>
                 
                 <div className="formField formFieldHalf">
@@ -390,16 +515,57 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                     required
                     className="formSelect"
                   >
-                    <option value="Operations">Operations</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Capital">Capital</option>
-                    <option value="Personnel">Personnel</option>
-                    <option value="Emergency">Emergency</option>
+                    <option value="">Select Category</option>
+                    <option value="operational">Operational</option>
+                    <option value="capital">Capital</option>
+                    <option value="administrative">Administrative</option>
+                    <option value="emergency">Emergency</option>
                   </select>
-                  {errors.category?.map((msg: string, i: number) => (
-                    <div className="error-message" key={i}>{msg}</div>
-                  ))}
+                  {validationErrors.category && (
+                    <div className="error-message">{validationErrors.category}</div>
+                  )}
                 </div>
+              </div>
+
+              <div className="formRow">
+                <div className="formField formFieldHalf">
+                  <label htmlFor="priority">Priority</label>
+                  <select
+                    id="priority"
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleInputChange}
+                    className="formSelect"
+                  >
+                    <option value="">Select Priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                  {validationErrors.priority && (
+                    <div className="error-message">{validationErrors.priority}</div>
+                  )}
+                </div>
+
+                {(formData.priority === 'urgent' || formData.priority === 'high') && (
+                  <div className="formField formFieldHalf">
+                    <label htmlFor="urgencyReason">Urgency Reason<span className='requiredTags'> *</span></label>
+                    <input
+                      type="text"
+                      id="urgencyReason"
+                      name="urgencyReason"
+                      value={formData.urgencyReason}
+                      onChange={handleInputChange}
+                      className="formInput"
+                      placeholder="Explain why this is urgent"
+                      maxLength={1000}
+                    />
+                    {validationErrors.urgencyReason && (
+                      <div className="error-message">{validationErrors.urgencyReason}</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="formField">
@@ -414,15 +580,21 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                   step="0.01"
                   required
                   className="formInput"
-                  readOnly={showItems && items.length > 0}
                   placeholder="0.00"
                 />
                 {showItems && items.length > 0 && (
-                  <span className="autofill-note">Auto-calculated from items below</span>
+                  <span className="autofill-note">
+                    Auto-filled from items total: ₱{calculateTotalFromItems().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formData.amountRequested > calculateTotalFromItems() && (
+                      <span style={{ color: '#28a745', marginLeft: '8px' }}>
+                        (includes buffer: ₱{(formData.amountRequested - calculateTotalFromItems()).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
+                  </span>
                 )}
-                {errors.amountRequested?.map((msg: string, i: number) => (
-                  <div className="error-message" key={i}>{msg}</div>
-                ))}
+                {validationErrors.amountRequested && (
+                  <div className="error-message">{validationErrors.amountRequested}</div>
+                )}
               </div>
 
               <div className="formField">
@@ -436,10 +608,13 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                   required
                   className="formInput"
                   placeholder="Enter budget purpose or project name"
+                  minLength={10}
+                  maxLength={500}
                 />
-                {errors.purpose?.map((msg: string, i: number) => (
-                  <div className="error-message" key={i}>{msg}</div>
-                ))}
+                <span className="helper-text">{formData.purpose.length}/500 characters (min: 10)</span>
+                {validationErrors.purpose && (
+                  <div className="error-message">{validationErrors.purpose}</div>
+                )}
               </div>
 
               <div className="formField">
@@ -453,10 +628,12 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                   className="formInput"
                   placeholder="Provide detailed justification for this budget request"
                   rows={4}
+                  maxLength={5000}
                 />
-                {errors.justification?.map((msg: string, i: number) => (
-                  <div className="error-message" key={i}>{msg}</div>
-                ))}
+                <span className="helper-text">{formData.justification.length}/5000 characters</span>
+                {validationErrors.justification && (
+                  <div className="error-message">{validationErrors.justification}</div>
+                )}
               </div>
 
               <div className="formRow">
@@ -472,9 +649,9 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                     className="formInput"
                     min={new Date().toISOString().split('T')[0]}
                   />
-                  {errors.start_date?.map((msg, i) => (
-                    <div className="error-message" key={i}>{msg}</div>
-                  ))}
+                  {validationErrors.start_date && (
+                    <div className="error-message">{validationErrors.start_date}</div>
+                  )}
                 </div>
                 
                 <div className="formField formFieldHalf">
@@ -489,9 +666,9 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                     className="formInput"
                     min={formData.start_date || new Date().toISOString().split('T')[0]}
                   />
-                  {errors.end_date?.map((msg, i) => (
-                    <div className="error-message" key={i}>{msg}</div>
-                  ))}
+                  {validationErrors.end_date && (
+                    <div className="error-message">{validationErrors.end_date}</div>
+                  )}
                 </div>
               </div>
 
@@ -588,6 +765,31 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                           </div>
 
                           <div className="itemField">
+                            <label>Item Priority</label>
+                            <select
+                              value={item.itemPriority || ''}
+                              onChange={(e) => updateItem(index, 'itemPriority', e.target.value)}
+                            >
+                              <option value="">Select Priority</option>
+                              <option value="must_have">Must Have</option>
+                              <option value="should_have">Should Have</option>
+                              <option value="nice_to_have">Nice to Have</option>
+                            </select>
+                          </div>
+
+                          <div className="itemField">
+                            <label>Essential</label>
+                            <div className="checkboxField">
+                              <input
+                                type="checkbox"
+                                checked={item.isEssential || false}
+                                onChange={(e) => updateItem(index, 'isEssential', e.target.checked)}
+                              />
+                              <span>Mark as essential</span>
+                            </div>
+                          </div>
+
+                          <div className="itemField">
                             <label>Subtotal</label>
                             <div className="subtotalField">
                               ₱{item.subtotal.toLocaleString(undefined, { 
@@ -680,11 +882,92 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
             <button
               type="button"
               className="saveAsDraftButton"
-              onClick={(e) => handleSubmit(e, true)}
+              disabled={!isFormValid}
+              title={!isFormValid ? "Please fix all validation errors before saving" : "Save as draft"}
+              onClick={async (e) => {
+                console.log('Save as Draft button clicked - START');
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!isFormValid) {
+                  alert('Please fix all validation errors before saving');
+                  return;
+                }
+                
+                try {
+                  console.log('Creating draft payload...', formData);
+                  const payload: NewBudgetRequest = {
+                    ...formData,
+                    status: 'DRAFT',
+                    items: showItems && items.length > 0 ? items : undefined,
+                    supporting_documents: supportingDocuments.length > 0 ? supportingDocuments : undefined
+                  };
+                  
+                  console.log('Calling onAddBudgetRequest with payload:', payload);
+                  await onAddBudgetRequest(payload);
+                  console.log('onAddBudgetRequest completed successfully');
+                  
+                  alert('Draft saved successfully!');
+                  onClose();
+                } catch (error) {
+                  console.error('Error saving draft:', error);
+                  alert('Error saving draft: ' + (error instanceof Error ? error.message : String(error)));
+                }
+              }}
             >
               <i className="ri-draft-line" /> Save as Draft
             </button>
-            <button type="submit" className="submitButton">
+            <button 
+              type="button" 
+              className="submitButton"
+              disabled={!isFormValid}
+              title={!isFormValid ? "Please fix all validation errors before submitting" : "Submit for approval"}
+              onClick={async (e) => {
+                console.log('Submit for Approval button clicked - START');
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!isFormValid) {
+                  alert('Please fix all validation errors before submitting');
+                  return;
+                }
+                
+                // Quick validation
+                if (!formData.purpose || !formData.justification || !formData.amountRequested || formData.amountRequested <= 0) {
+                  alert('Please fill in required fields: Purpose, Justification, and Amount');
+                  return;
+                }
+
+                // Validate amount against items total
+                if (showItems && items.length > 0) {
+                  const itemsTotal = calculateTotalFromItems();
+                  if (formData.amountRequested < itemsTotal) {
+                    alert(`Amount requested (₱${formData.amountRequested.toLocaleString()}) must be greater than or equal to items total (₱${itemsTotal.toLocaleString()})`);
+                    return;
+                  }
+                }
+                
+                try {
+                  console.log('Creating submission payload...', formData);
+                  const payload: NewBudgetRequest = {
+                    ...formData,
+                    status: 'SUBMITTED',
+                    items: showItems && items.length > 0 ? items : undefined,
+                    supporting_documents: supportingDocuments.length > 0 ? supportingDocuments : undefined
+                  };
+                  
+                  console.log('Calling onAddBudgetRequest with payload:', payload);
+                  await onAddBudgetRequest(payload);
+                  console.log('onAddBudgetRequest completed successfully');
+                  
+                  alert('Request submitted successfully!');
+                  onClose();
+                } catch (error) {
+                  console.error('Error submitting request:', error);
+                  alert('Error submitting request: ' + (error instanceof Error ? error.message : String(error)));
+                }
+              }}
+            >
               <i className="ri-send-plane-line" /> Submit for Approval
             </button>
           </div>

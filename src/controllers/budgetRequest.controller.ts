@@ -17,58 +17,101 @@ export async function listBudgetRequests(req: Request, res: Response) {
       department,
       dateFrom,
       dateTo,
-      priority 
+      priority,
+      search 
     } = req.query;
+
+    // Helper function to check if value is valid (not undefined, null, empty, or string "undefined")
+    const isValidValue = (value: any): boolean => {
+      return value !== undefined && 
+             value !== null && 
+             value !== '' && 
+             value !== 'undefined' && 
+             value !== 'null';
+    };
 
     // Build base filter
     let filter: any = {
       isDeleted: false
     };
 
-    // Apply filters
-    if (status) filter.status = status;
-    if (department) filter.department = department;
-    if (priority) filter.priority = priority;
+    // Apply filters - only if values are valid
+    if (isValidValue(status)) filter.status = status;
+    if (isValidValue(department)) filter.department = department;
+    if (isValidValue(priority)) filter.priority = priority;
+
+    // Apply search filter
+    if (isValidValue(search)) {
+      filter.OR = [
+        { purpose: { contains: search as string, mode: 'insensitive' } },
+        { justification: { contains: search as string, mode: 'insensitive' } },
+        { requestCode: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
 
     // Apply date range filter
-    if (dateFrom || dateTo) {
+    if (isValidValue(dateFrom) || isValidValue(dateTo)) {
       filter.createdAt = {};
-      if (dateFrom) filter.createdAt.gte = new Date(dateFrom as string);
-      if (dateTo) filter.createdAt.lte = new Date(dateTo as string);
+      if (isValidValue(dateFrom)) filter.createdAt.gte = new Date(dateFrom as string);
+      if (isValidValue(dateTo)) filter.createdAt.lte = new Date(dateTo as string);
     }
 
     // Apply role-based access control
     filter = applyAccessFilter(filter, req.user!);
 
-    // Execute query with pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    const [data, total] = await Promise.all([
-      service.findMany(filter, {
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          itemAllocations: {
-            select: {
-              id: true,
-              itemName: true,
-              totalCost: true,
-              status: true
-            }
-          }
-        }
-      }),
-      service.count(filter)
-    ]);
-
-    return successResponseWithPagination(
-      res,
-      data,
+    // Generate user-aware cache key (different users may see different data based on role/department)
+    const cacheKey = cache.generateUserCacheKey(
+      'requests:list',
+      req.user!.id.toString(),
+      req.user!.role,
       {
         page: Number(page),
         limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit))
+        status,
+        department,
+        priority,
+        dateFrom,
+        dateTo,
+        search
+      }
+    );
+
+    // Try cache first, then fetch from DB if miss
+    const result = await cache.withCache(
+      cacheKey,
+      async () => {
+        const skip = (Number(page) - 1) * Number(limit);
+        const [data, total] = await Promise.all([
+          service.findMany(filter, {
+            skip,
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' },
+            include: {
+              itemAllocations: {
+                select: {
+                  id: true,
+                  itemName: true,
+                  totalCost: true,
+                  status: true
+                }
+              }
+            }
+          }),
+          service.count(filter)
+        ]);
+        return { data, total };
+      },
+      180 // Cache for 3 minutes (balance between freshness and performance)
+    );
+
+    return successResponseWithPagination(
+      res,
+      result.data,
+      {
+        page: Number(page),
+        limit: Number(limit),
+        total: result.total,
+        totalPages: Math.ceil(result.total / Number(limit))
       },
       'Budget requests retrieved successfully'
     );
@@ -82,7 +125,15 @@ export async function getBudgetRequest(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
-    const budgetRequest = await service.findById(Number(id));
+    // Generate cache key for this specific budget request
+    const cacheKey = cache.generateCacheKey('requests:detail', { id: Number(id) });
+
+    // Try cache first, then fetch from DB if miss
+    const budgetRequest = await cache.withCache(
+      cacheKey,
+      async () => await service.findById(Number(id)),
+      600 // Cache for 10 minutes (details are relatively stable)
+    );
 
     if (!budgetRequest) {
       return notFoundResponse(res, 'Budget request');
@@ -94,11 +145,13 @@ export async function getBudgetRequest(req: Request, res: Response) {
       return forbiddenResponse(res, 'You do not have permission to view this budget request');
     }
 
-    // Log view action
-    await auditLogger.view({
+    // Log view action (don't await - fire and forget for performance)
+    auditLogger.view({
       id: budgetRequest.id,
       requestCode: budgetRequest.requestCode
-    }, req.user!);
+    }, req.user!).catch(err => {
+      console.error('Audit log error:', err.message);
+    });
 
     return successResponse(res, budgetRequest, 'Budget request retrieved successfully');
   } catch (error: any) {
@@ -109,6 +162,8 @@ export async function getBudgetRequest(req: Request, res: Response) {
 
 export async function createBudgetRequest(req: Request, res: Response) {
   try {
+    console.log('Creating budget request with data:', JSON.stringify(req.body, null, 2));
+    
     const budgetRequest = await service.create(req.body, req.user!);
 
     // Log creation
@@ -139,6 +194,8 @@ export async function createBudgetRequest(req: Request, res: Response) {
     );
   } catch (error: any) {
     console.error('Create budget request error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request body was:', JSON.stringify(req.body, null, 2));
     return errorResponse(res, error.message || 'Failed to create budget request');
   }
 }
@@ -175,6 +232,7 @@ export async function submitBudgetRequest(req: Request, res: Response) {
     }, req.user!);
 
     // Invalidate related caches
+    await cache.deleteCache(cache.generateCacheKey('requests:detail', { id: Number(id) }));
     await cache.invalidateBudgetRequests();
     await cache.invalidateAnalytics();
 
@@ -222,7 +280,8 @@ export async function approveBudgetRequest(req: Request, res: Response) {
       approvedBy: req.user!.id
     }, req.user!);
 
-    // Invalidate related caches
+    // Invalidate related caches (specific detail + all lists + analytics)
+    await cache.deleteCache(cache.generateCacheKey('requests:detail', { id: Number(id) }));
     await cache.invalidateBudgetRequests();
     await cache.invalidateAnalytics();
 
@@ -271,7 +330,8 @@ export async function rejectBudgetRequest(req: Request, res: Response) {
       reason: req.body.reviewNotes
     }, req.user!);
 
-    // Invalidate related caches
+    // Invalidate related caches (specific detail + all lists + analytics)
+    await cache.deleteCache(cache.generateCacheKey('requests:detail', { id: Number(id) }));
     await cache.invalidateBudgetRequests();
     await cache.invalidateAnalytics();
 

@@ -224,7 +224,7 @@
 
 .itemGrid {
   display: grid !important;
-  grid-template-columns: 2fr 1fr 1fr 1fr 2fr 1fr !important;
+  grid-template-columns: 2fr 1fr 1fr 1fr 2fr 1.2fr 1fr 1fr !important;
   gap: 1rem !important;
   align-items: end !important;
 }
@@ -262,6 +262,27 @@
   padding: 0.5rem 0.75rem !important;
   border-radius: 4px !important;
   border: 1px solid var(--border-color) !important;
+}
+
+.checkboxField {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.5rem 0 !important;
+}
+
+.checkboxField input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  cursor: pointer !important;
+  accent-color: var(--primary-color) !important;
+}
+
+.checkboxField span {
+  font-size: 0.9rem !important;
+  color: var(--primary-text-color) !important;
+  cursor: pointer !important;
+  user-select: none !important;
 }
 
 .removeItemBtn {
@@ -469,12 +490,30 @@
 .submitButton:hover {
   background: var(--primary-hover-color) !important;
 }
+.submitButton:disabled {
+  background: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+.submitButton:disabled:hover {
+  background: #9ca3af !important;
+  transform: none !important;
+}
 
 .saveAsDraftButton {
   background: var(--warning-color) !important;
 }
 .saveAsDraftButton:hover {
   background: var(--warning-hover-color) !important;
+}
+.saveAsDraftButton:disabled {
+  background: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+.saveAsDraftButton:disabled:hover {
+  background: #9ca3af !important;
+  transform: none !important;
 }
 
 /* ---------- Utility Classes ---------- */
@@ -485,10 +524,18 @@
   margin-top: 0.25rem !important;
 }
 
+.helper-text {
+  font-size: 0.75rem !important;
+  color: var(--secondary-text-color) !important;
+  margin-top: 0.25rem !important;
+  display: block !important;
+}
+
 .error-message {
   color: #dc2626 !important;
   font-size: 0.875rem !important;
   margin-top: 0.25rem !important;
+  font-weight: 500 !important;
 }
 
 /* ---------- Responsive ---------- */

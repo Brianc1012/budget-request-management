@@ -70,6 +70,8 @@ model BudgetRequest {
   category        String? // "operational" | "capital" | "administrative" | "emergency"
   priority        String? // "low" | "medium" | "high" | "urgent"
   urgencyReason   String? @db.Text // Why urgent/emergency
+  start_date      DateTime? // Budget period start date
+  end_date        DateTime? // Budget period end date
 
   // Budget Period Context (synced from Finance Budget allocation)
   fiscalYear   Int?
@@ -189,6 +191,7 @@ model BudgetRequestItemAllocation {
   itemCode     String?
   itemCategory String?
   quantity     Int
+  unitMeasure  String? // "pcs", "hours", "kg", etc.
   unitCost     Decimal @db.Decimal(12, 2)
   totalCost    Decimal @db.Decimal(12, 2)
 

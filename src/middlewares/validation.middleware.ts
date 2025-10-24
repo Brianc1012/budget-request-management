@@ -8,9 +8,12 @@ export const validateCreateBudgetRequest = (
   res: Response,
   next: NextFunction
 ) => {
+  console.log('Validating budget request:', JSON.stringify(req.body, null, 2));
+  
   const { error, value } = validateBudgetRequest(req.body);
 
   if (error) {
+    console.error('Validation failed:', error.details);
     return validationErrorResponse(
       res,
       error.details.map(detail => ({
@@ -20,6 +23,7 @@ export const validateCreateBudgetRequest = (
     );
   }
 
+  console.log('Validation passed');
   req.body = value;
   next();
 };

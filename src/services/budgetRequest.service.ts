@@ -43,10 +43,21 @@ export async function findById(id: number, options: any = {}) {
   return budgetRequest;
 }
 
+// Map user role to Prisma UserRole enum
+function mapUserRoleToPrismaEnum(role: string): 'ADMIN' | 'NON_ADMIN' {
+  const roleLower = role.toLowerCase();
+  if (roleLower.includes('admin') || roleLower.includes('superadmin')) {
+    return 'ADMIN';
+  }
+  return 'NON_ADMIN';
+}
+
 export async function create(data: any, user: UserContext) {
+  console.log('Service create called with data:', JSON.stringify(data, null, 2));
+  
   // Sync department budget from Finance
-  const fiscalYear = new Date().getFullYear();
-  const fiscalPeriod = getCurrentFiscalPeriod();
+  const fiscalYear = data.fiscalYear || new Date().getFullYear();
+  const fiscalPeriod = data.fiscalPeriod || getCurrentFiscalPeriod();
   
   const budget = await syncService.syncDepartmentBudget(
     data.department,
@@ -58,6 +69,59 @@ export async function create(data: any, user: UserContext) {
   const budgetShortfall = Number(data.amountRequested) - Number(budget.remainingAmount);
   const requiresBudgetApproval = budgetShortfall > 0;
 
+  // Calculate itemBreakdown and supplierBreakdown if items exist
+  let itemBreakdown: string | null = null;
+  let supplierBreakdown: string | null = null;
+  let totalItemsRequested: number | null = null;
+  let totalSuppliersInvolved: number | null = null;
+
+  if (data.items && data.items.length > 0) {
+    console.log('Processing items:', JSON.stringify(data.items, null, 2));
+    
+    // Create item breakdown - INCLUDE ALL FIELDS
+    const itemBreakdownData = data.items.map((item: any) => {
+      const mapped = {
+        itemName: item.item_name || item.itemName,
+        quantity: item.quantity,
+        unitMeasure: item.unit_measure || item.unitMeasure || 'pcs',
+        estimatedCost: item.unit_cost || item.unitCost,
+        supplierName: item.supplier || item.supplierName,
+        supplierId: item.supplier_id || item.supplierId || null,
+        itemPriority: item.itemPriority || null,
+        isEssential: item.isEssential !== undefined ? item.isEssential : true,
+        subtotal: item.subtotal || (item.quantity * (item.unit_cost || item.unitCost))
+      };
+      console.log('Mapped item:', JSON.stringify(mapped, null, 2));
+      return mapped;
+    });
+    itemBreakdown = JSON.stringify(itemBreakdownData);
+    console.log('Final itemBreakdown JSON:', itemBreakdown);
+    totalItemsRequested = data.items.length;
+
+    // Create supplier breakdown (group by supplier)
+    const supplierMap = new Map();
+    data.items.forEach((item: any) => {
+      const supplierId = item.supplier_id || item.supplierId || item.supplier || item.supplierName;
+      const supplierName = item.supplier || item.supplierName;
+      const itemCost = item.subtotal || item.totalCost || (item.quantity * (item.unit_cost || item.unitCost));
+
+      if (supplierMap.has(supplierId)) {
+        const existing = supplierMap.get(supplierId);
+        existing.totalAmount += itemCost;
+        existing.itemCount += 1;
+      } else {
+        supplierMap.set(supplierId, {
+          supplierId,
+          supplierName,
+          totalAmount: itemCost,
+          itemCount: 1
+        });
+      }
+    });
+    supplierBreakdown = JSON.stringify(Array.from(supplierMap.values()));
+    totalSuppliersInvolved = supplierMap.size;
+  }
+
   // Create budget request with items in transaction
   const budgetRequest = await prisma.$transaction(async (tx: any) => {
     // Create main budget request
@@ -66,47 +130,61 @@ export async function create(data: any, user: UserContext) {
         department: data.department,
         createdBy: user.id,
         createdByName: user.username,
-        createdByEmail: data.createdByEmail,
-        createdByRole: user.role,
+        createdByEmail: data.createdByEmail || null,
+        createdByRole: mapUserRoleToPrismaEnum(user.role),
         amountRequested: data.amountRequested,
         purpose: data.purpose,
         justification: data.justification,
-        category: data.category,
-        priority: data.priority,
-        urgencyReason: data.urgencyReason,
+        category: data.category || 'operational',
+        priority: data.priority || null,
+        urgencyReason: data.urgencyReason || null,
+        start_date: data.start_date ? new Date(data.start_date) : null,
+        end_date: data.end_date ? new Date(data.end_date) : null,
         fiscalYear,
         fiscalPeriod,
         linkedPurchaseRequestId: data.linkedPurchaseRequestId,
         linkedPurchaseRequestRefNo: data.linkedPurchaseRequestRefNo,
+        itemBreakdown,
+        supplierBreakdown,
+        totalItemsRequested,
+        totalSuppliersInvolved,
         departmentBudgetRemaining: budget.remainingAmount,
         budgetShortfall: budgetShortfall > 0 ? budgetShortfall : 0,
         budgetBefore: budget.remainingAmount,
-        status: 'DRAFT'
+        status: data.status || 'DRAFT'
       }
     });
 
     // Create item allocations if provided
+    // Map frontend field names to backend field names
     if (data.items && data.items.length > 0) {
+      const mappedItems = data.items.map((item: any) => ({
+        budgetRequestId: br.id,
+        itemName: item.item_name || item.itemName,
+        itemCode: item.item_code || item.itemCode || null,
+        quantity: item.quantity,
+        unitMeasure: item.unit_measure || item.unitMeasure || 'pcs',
+        unitCost: item.unit_cost || item.unitCost,
+        totalCost: item.subtotal || item.totalCost || (item.quantity * (item.unit_cost || item.unitCost)),
+        supplierId: item.supplier_id || item.supplierId || null,
+        supplierName: item.supplier || item.supplierName,
+        allocatedAmount: item.subtotal || item.totalCost || (item.quantity * (item.unit_cost || item.unitCost)),
+        itemPriority: item.itemPriority || 'must_have',
+        isEssential: item.isEssential !== false,
+        status: data.status || 'DRAFT'
+      }));
+
+      console.log('Creating item allocations:', JSON.stringify(mappedItems, null, 2));
+
       await tx.budgetRequestItemAllocation.createMany({
-        data: data.items.map((item: any) => ({
-          budgetRequestId: br.id,
-          itemName: item.itemName,
-          itemCode: item.itemCode,
-          quantity: item.quantity,
-          unitCost: item.unitCost,
-          totalCost: item.totalCost,
-          supplierId: item.supplierId,
-          supplierName: item.supplierName,
-          allocatedAmount: item.totalCost,
-          itemPriority: item.itemPriority || 'must_have',
-          isEssential: item.isEssential !== false
-        }))
+        data: mappedItems
       });
     }
 
     return br;
   });
 
+  console.log('Budget request created successfully:', budgetRequest.id);
   return budgetRequest;
 }
 

@@ -13,6 +13,8 @@ interface BudgetItem {
   unit_cost: number;
   supplier: string;
   subtotal: number;
+  itemPriority?: 'must_have' | 'should_have' | 'nice_to_have';
+  isEssential?: boolean;
 }
 
 interface BudgetRequest {
@@ -23,6 +25,8 @@ interface BudgetRequest {
   amountRequested: number;
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   category: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  urgencyReason?: string;
   createdBy: number;
   createdByName: string;
   department: string;
@@ -43,6 +47,11 @@ interface BudgetRequest {
   start_date?: string;
   end_date?: string;
   items?: BudgetItem[];
+  itemAllocations?: BudgetItem[];
+  itemBreakdown?: string; // JSON string from database
+  supplierBreakdown?: string; // JSON string from database
+  totalItemsRequested?: number;
+  totalSuppliersInvolved?: number;
   supporting_documents?: File[] | string[]; // Could be File objects or file URLs
 }
 
@@ -93,10 +102,110 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
     );
   };
 
+  // Parse itemBreakdown from JSON string if available
+  const getItems = (): BudgetItem[] => {
+    // Helper function to normalize item data from any source
+    const normalizeItem = (item: any): BudgetItem => {
+      console.log('Raw item received:', JSON.stringify(item, null, 2));
+      console.log('Item keys:', Object.keys(item));
+      
+      // More defensive value extraction
+      let quantity = 0;
+      if (item.quantity !== undefined && item.quantity !== null) {
+        quantity = Number(item.quantity);
+        if (isNaN(quantity)) quantity = 0;
+      }
+      
+      let unitCost = 0;
+      const costValue = item.estimatedCost || item.unitCost || item.unit_cost;
+      if (costValue !== undefined && costValue !== null) {
+        unitCost = Number(costValue);
+        if (isNaN(unitCost)) unitCost = 0;
+      }
+      
+      let subtotal = 0;
+      const subtotalValue = item.subtotal || item.totalCost;
+      if (subtotalValue !== undefined && subtotalValue !== null) {
+        subtotal = Number(subtotalValue);
+        if (isNaN(subtotal)) subtotal = quantity * unitCost;
+      } else {
+        subtotal = quantity * unitCost;
+      }
+      
+      console.log('Extracted values:', { quantity, unitCost, subtotal });
+      
+      const normalized = {
+        item_name: item.itemName || item.item_name || 'Unknown Item',
+        quantity: quantity,
+        unit_measure: item.unitMeasure || item.unit_measure || 'pcs',
+        unit_cost: unitCost,
+        supplier: item.supplierName || item.supplier || 'Unknown Supplier',
+        subtotal: subtotal,
+        itemPriority: item.itemPriority || undefined,
+        isEssential: item.isEssential !== undefined ? item.isEssential : undefined
+      };
+      
+      console.log('Final normalized item:', JSON.stringify(normalized, null, 2));
+      return normalized;
+    };
+
+    console.log('Getting items from request:', {
+      hasItems: !!request.items,
+      hasItemAllocations: !!request.itemAllocations,
+      hasItemBreakdown: !!request.itemBreakdown
+    });
+
+    // First check if items array exists (from form submission)
+    if (request.items && request.items.length > 0) {
+      console.log('Using items from request.items:', request.items);
+      return request.items.map(normalizeItem);
+    }
+    
+    // Then check itemAllocations (from database relation)
+    if (request.itemAllocations && request.itemAllocations.length > 0) {
+      console.log('Using items from request.itemAllocations:', request.itemAllocations);
+      return request.itemAllocations.map(normalizeItem);
+    }
+    
+    // Finally try to parse itemBreakdown JSON string
+    if (request.itemBreakdown) {
+      try {
+        console.log('Parsing itemBreakdown string:', request.itemBreakdown);
+        const parsed = JSON.parse(request.itemBreakdown);
+        console.log('Parsed itemBreakdown:', parsed);
+        const normalized = parsed.map(normalizeItem);
+        console.log('Final normalized items:', normalized);
+        return normalized;
+      } catch (e) {
+        console.error('Failed to parse itemBreakdown:', e);
+        return [];
+      }
+    }
+    
+    console.log('No items found in request');
+    return [];
+  };
+
+  // Parse supplierBreakdown from JSON string if available
+  const getSupplierBreakdown = () => {
+    if (request.supplierBreakdown) {
+      try {
+        return JSON.parse(request.supplierBreakdown);
+      } catch (e) {
+        console.error('Failed to parse supplierBreakdown:', e);
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const items = getItems();
+  const supplierBreakdown = getSupplierBreakdown();
+
   // Calculate total from items if available
   const calculateItemsTotal = () => {
-    if (!request.items || request.items.length === 0) return 0;
-    return request.items.reduce((total, item) => total + item.subtotal, 0);
+    if (items.length === 0) return 0;
+    return items.reduce((total, item) => total + item.subtotal, 0);
   };
 
   // Format file size
@@ -231,6 +340,28 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
               </div>
             </div>
 
+            <div className="displayRow">
+              <div className="displayField displayFieldHalf">
+                <label>Priority</label>
+                <div className="displayValue">
+                  {request.priority ? (
+                    <span className={`priority-badge priority-${request.priority.toLowerCase()}`}>
+                      {request.priority.toUpperCase()}
+                    </span>
+                  ) : (
+                    <span className="priority-badge priority-none">N/A</span>
+                  )}
+                </div>
+              </div>
+              
+              {request.urgencyReason && (
+                <div className="displayField displayFieldHalf">
+                  <label>Urgency Reason</label>
+                  <div className="displayValue">{request.urgencyReason}</div>
+                </div>
+              )}
+            </div>
+
             {/* Budget Details Section */}
             <div className="sectionHeader">Budget Details</div>
             
@@ -294,14 +425,14 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
             </div>
 
             {/* Items Section */}
-            {request.items && request.items.length > 0 && (
+            {items && items.length > 0 && (
               <div className="itemsDisplaySection">
                 <div className="itemsDisplayHeader">
                   <h3>Budget Items</h3>
-                  <div className="itemsCount">{request.items.length} item{request.items.length !== 1 ? 's' : ''}</div>
+                  <div className="itemsCount">{items.length} item{items.length !== 1 ? 's' : ''}</div>
                 </div>
 
-                {request.items.map((item, index) => (
+                {items.map((item, index) => (
                   <div key={index} className="itemDisplayContainer">
                     <div className="itemDisplayGrid">
                       <div className="itemDisplayField">
@@ -322,7 +453,7 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
                       <div className="itemDisplayField">
                         <label>Unit Cost</label>
                         <div className="itemDisplayValue">
-                          ₱{item.unit_cost.toLocaleString(undefined, { 
+                          ₱{(item.unit_cost || 0).toLocaleString(undefined, { 
                             minimumFractionDigits: 2, 
                             maximumFractionDigits: 2 
                           })}
@@ -331,13 +462,39 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
 
                       <div className="itemDisplayField">
                         <label>Supplier</label>
-                        <div className="itemDisplayValue">{item.supplier}</div>
+                        <div className="itemDisplayValue">{item.supplier || 'N/A'}</div>
+                      </div>
+
+                      <div className="itemDisplayField">
+                        <label>Item Priority</label>
+                        <div className="itemDisplayValue">
+                          {item.itemPriority ? (
+                            <span className={`item-priority-badge item-priority-${item.itemPriority.replace('_', '-')}`}>
+                              {item.itemPriority.replace('_', ' ').toUpperCase()}
+                            </span>
+                          ) : (
+                            <span className="item-priority-badge item-priority-none">N/A</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="itemDisplayField">
+                        <label>Essential</label>
+                        <div className="itemDisplayValue">
+                          {item.isEssential !== undefined ? (
+                            <span className={`essential-badge ${item.isEssential ? 'essential-yes' : 'essential-no'}`}>
+                              {item.isEssential ? 'Yes' : 'No'}
+                            </span>
+                          ) : (
+                            <span className="essential-badge essential-none">N/A</span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="itemDisplayField">
                         <label>Subtotal</label>
                         <div className="subtotalDisplayField">
-                          ₱{item.subtotal.toLocaleString(undefined, { 
+                          ₱{(item.subtotal || 0).toLocaleString(undefined, { 
                             minimumFractionDigits: 2, 
                             maximumFractionDigits: 2 
                           })}
@@ -355,6 +512,41 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
                       maximumFractionDigits: 2 
                     })}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Supplier Breakdown Section */}
+            {supplierBreakdown && supplierBreakdown.length > 0 && (
+              <div className="supplierBreakdownSection">
+                <div className="sectionHeader">Supplier Breakdown</div>
+                <div className="supplierBreakdownGrid">
+                  {supplierBreakdown.map((supplier: any, index: number) => (
+                    <div key={index} className="supplierBreakdownCard">
+                      <div className="supplierBreakdownName">
+                        <i className="ri-store-line" /> {supplier.supplierName || 'Unknown Supplier'}
+                      </div>
+                      <div className="supplierBreakdownDetails">
+                        <div className="supplierBreakdownField">
+                          <span className="supplierBreakdownLabel">Items:</span>
+                          <span className="supplierBreakdownValue">{supplier.itemCount || 0}</span>
+                        </div>
+                        <div className="supplierBreakdownField">
+                          <span className="supplierBreakdownLabel">Total Amount:</span>
+                          <span className="supplierBreakdownValue highlightValue">
+                            ₱{(Number(supplier.totalAmount) || 0).toLocaleString(undefined, { 
+                              minimumFractionDigits: 2, 
+                              maximumFractionDigits: 2 
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="supplierBreakdownSummary">
+                  <span>Total Suppliers: <strong>{supplierBreakdown.length}</strong></span>
+                  <span>Total Items: <strong>{items.length}</strong></span>
                 </div>
               </div>
             )}

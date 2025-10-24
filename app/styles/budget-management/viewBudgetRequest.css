@@ -228,7 +228,7 @@
 
 .itemDisplayGrid {
   display: grid !important;
-  grid-template-columns: 2fr 1fr 1fr 1fr 2fr 1fr !important;
+  grid-template-columns: 2fr 1fr 1fr 1fr 2fr 1.2fr 1fr 1fr !important;
   gap: 1rem !important;
   align-items: end !important;
 }
@@ -509,6 +509,179 @@
 }
 
 
+/* ---------- Item Priority Badges ---------- */
+.item-priority-badge {
+  display: inline-block !important;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 12px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+}
+
+.item-priority-must-have {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+  color: white !important;
+  border: 1px solid #bd2130 !important;
+  animation: pulse-urgent 2s ease-in-out infinite !important;
+}
+
+.item-priority-should-have {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+  color: #212529 !important;
+  border: 1px solid #d39e00 !important;
+}
+
+.item-priority-nice-to-have {
+  background: linear-gradient(135deg, #28a745 0%, #218838 100%) !important;
+  color: white !important;
+  border: 1px solid #1e7e34 !important;
+}
+
+.item-priority-none {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+  color: white !important;
+  border: 1px solid #545b62 !important;
+}
+
+/* ---------- Essential Badges ---------- */
+.essential-badge {
+  display: inline-block !important;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 12px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+}
+
+.essential-yes {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+  color: white !important;
+  border: 1px solid #117a8b !important;
+}
+
+.essential-no {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+  color: white !important;
+  border: 1px solid #545b62 !important;
+}
+
+.essential-none {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+  color: white !important;
+  border: 1px solid #545b62 !important;
+}
+
+/* ---------- Pulse Animation for Must-Have Items ---------- */
+@keyframes pulse-urgent {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+  }
+}
+
+/* ---------- Supplier Breakdown Section ---------- */
+.supplierBreakdownSection {
+  background: #f8f9fa !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  padding: 1.5rem !important;
+  margin: 1rem 0 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+.supplierBreakdownGrid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  gap: 1rem !important;
+  margin: 1rem 0 !important;
+}
+
+.supplierBreakdownCard {
+  background: white !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  padding: 1rem !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.supplierBreakdownCard:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+.supplierBreakdownName {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: var(--primary-color) !important;
+  margin-bottom: 0.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.supplierBreakdownName i {
+  font-size: 1.2rem !important;
+  color: var(--info-color) !important;
+}
+
+.supplierBreakdownDetails {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+
+.supplierBreakdownField {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 0.5rem !important;
+  background: #f8f9fa !important;
+  border-radius: 4px !important;
+}
+
+.supplierBreakdownLabel {
+  font-size: 0.85rem !important;
+  color: var(--secondary-text-color) !important;
+  font-weight: 500 !important;
+}
+
+.supplierBreakdownValue {
+  font-size: 0.9rem !important;
+  color: var(--primary-text-color) !important;
+  font-weight: 600 !important;
+}
+
+.supplierBreakdownSummary {
+  display: flex !important;
+  justify-content: space-around !important;
+  align-items: center !important;
+  margin-top: 1rem !important;
+  padding: 1rem !important;
+  background: var(--info-color) !important;
+  color: white !important;
+  border-radius: 8px !important;
+  font-size: 0.9rem !important;
+}
+
+.supplierBreakdownSummary strong {
+  font-size: 1.1rem !important;
+  margin-left: 0.25rem !important;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
   .viewBudgetRequestModal {
@@ -529,6 +702,10 @@
   .itemDisplayGrid {
     grid-template-columns: 1fr !important;
     gap: 0.5rem !important;
+  }
+
+  .supplierBreakdownGrid {
+    grid-template-columns: 1fr !important;
   }
 
   .modalButtons {

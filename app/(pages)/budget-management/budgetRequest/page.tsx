@@ -13,8 +13,32 @@ import FilterDropdown, { FilterSection } from "../../../Components/filter";
 import AddBudgetRequest from './addBudgetRequest';
 import ViewBudgetRequest from './viewBudgetRequest';
 import AuditTrailBudgetRequest from './auditTrailBudgetRequest';
+import budgetRequestService, { 
+  CreateBudgetRequestDto, 
+  ApprovalDto, 
+  RejectionDto 
+} from '../../../services/budgetRequest.service';
+import { useAuth } from '../../../contexts/AuthContext';
 
 
+
+interface BudgetRequestItem {
+  id: number;
+  budgetRequestId: number;
+  itemName: string;
+  itemCode?: string;
+  quantity: number;
+  unitMeasure?: string;
+  unitCost: string | number;
+  totalCost: string | number;
+  supplierId?: number | null;
+  supplierName: string;
+  itemPriority?: string;
+  isEssential?: boolean;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface BudgetRequest {
   id: number;
@@ -24,7 +48,8 @@ interface BudgetRequest {
   amountRequested: number;
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   category: string;
-  priority?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  urgencyReason?: string;
   createdBy: number;
   createdByName: string;
   createdByEmail?: string;
@@ -39,9 +64,17 @@ interface BudgetRequest {
   reviewNotes?: string;
   createdAt: string;
   updatedAt?: string;
+  start_date?: string;
+  end_date?: string;
+  itemBreakdown?: string;
+  supplierBreakdown?: string;
+  itemAllocations?: BudgetRequestItem[];
+  totalItemsRequested?: number;
+  totalSuppliersInvolved?: number;
 }
 
 const BudgetRequestPage = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<BudgetRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -125,165 +158,40 @@ const BudgetRequestPage = () => {
     setCurrentPage(1);
   };
 
-  // Mock data - replace with actual API call
+  // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Build params object, only include defined values
+        const params: any = {
+          page: currentPage,
+          limit: pageSize,
+          sortBy: sortField,
+          sortOrder: sortOrder
+        };
         
-        // Mock data
-        const mockData: BudgetRequest[] = [
-          {
-            id: 1,
-            requestCode: 'BR-2025-001',
-            purpose: 'New Bus Maintenance Equipment',
-            justification: 'Purchase of diagnostic equipment for bus maintenance including computerized diagnostic tools and specialized repair equipment for improving service quality.',
-            amountRequested: 50000,
-            status: 'SUBMITTED',
-            category: 'Maintenance',
-            department: 'Operations',
-            createdBy: 101,
-            createdByName: 'John Doe',
-            createdByEmail: 'john.doe@example.com',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-03-15T10:00:00Z'
-          },
-          {
-            id: 2,
-            requestCode: 'BR-2025-002',
-            purpose: 'Marketing Campaign Q2',
-            justification: 'Budget for digital marketing campaign including social media advertising, website improvements, and promotional materials to increase ridership.',
-            amountRequested: 25000,
-            reservedAmount: 26250,
-            bufferPercentage: 5,
-            status: 'APPROVED',
-            category: 'Marketing',
-            department: 'Operations',
-            createdBy: 102,
-            createdByName: 'Jane Smith',
-            reviewedBy: 201,
-            reviewedByName: 'Finance Admin',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q2',
-            createdAt: '2024-03-10T14:30:00Z'
-          },
-          {
-            id: 3,
-            requestCode: 'BR-2025-003',
-            purpose: 'Driver Training Program',
-            justification: 'Quarterly driver safety training program covering defensive driving techniques and vehicle maintenance basics for all fleet drivers.',
-            amountRequested: 15000,
-            status: 'DRAFT',
-            category: 'Training',
-            department: 'HR',
-            createdBy: 103,
-            createdByName: 'Mike Johnson',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-03-20T09:15:00Z'
-          },
-          {
-            id: 4,
-            requestCode: 'BR-2025-004',
-            purpose: 'GPS Tracking System Upgrade',
-            justification: 'Upgrade existing GPS tracking systems across the fleet with new hardware and software capabilities for better route optimization.',
-            amountRequested: 75000,
-            status: 'REJECTED',
-            category: 'Equipment',
-            department: 'Operations',
-            createdBy: 104,
-            createdByName: 'Sarah Wilson',
-            reviewedBy: 201,
-            reviewedByName: 'Finance Admin',
-            reviewNotes: 'Budget constraints for Q1',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-03-08T11:20:00Z'
-          },
-          {
-            id: 5,
-            requestCode: 'BR-2025-005',
-            purpose: 'Terminal Infrastructure Repair',
-            justification: 'Essential repairs to bus terminal facilities including roof repairs, electrical system updates, and passenger waiting areas renovation.',
-            amountRequested: 120000,
-            reservedAmount: 126000,
-            bufferPercentage: 5,
-            status: 'APPROVED',
-            category: 'Infrastructure',
-            department: 'Operations',
-            createdBy: 105,
-            createdByName: 'Tom Brown',
-            reviewedBy: 201,
-            reviewedByName: 'Finance Admin',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-02-25T16:45:00Z'
-          },
-          {
-            id: 6,
-            requestCode: 'BR-2025-006',
-            purpose: 'Fleet Expansion Vehicles',
-            justification: 'Purchase of 3 additional buses to expand route coverage and reduce passenger wait times during peak hours.',
-            amountRequested: 450000,
-            status: 'SUBMITTED',
-            category: 'Operations',
-            department: 'Operations',
-            createdBy: 106,
-            createdByName: 'David Lee',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q2',
-            createdAt: '2024-03-18T13:30:00Z'
-          },
-          {
-            id: 7,
-            requestCode: 'BR-2025-007',
-            purpose: 'Office Equipment Upgrade',
-            justification: 'Replacement of outdated computers and office equipment for administrative staff to improve operational efficiency.',
-            amountRequested: 18000,
-            status: 'DRAFT',
-            category: 'Other',
-            department: 'Operations',
-            createdBy: 107,
-            createdByName: 'Lisa Martinez',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-03-22T08:45:00Z'
-          },
-          {
-            id: 8,
-            requestCode: 'BR-2025-008',
-            purpose: 'Safety Equipment Update',
-            justification: 'Purchase of updated safety equipment including first aid kits, fire extinguishers, and emergency communication devices for all vehicles.',
-            amountRequested: 8500,
-            reservedAmount: 8925,
-            bufferPercentage: 5,
-            status: 'APPROVED',
-            category: 'Equipment',
-            department: 'Operations',
-            createdBy: 108,
-            createdByName: 'Robert Garcia',
-            reviewedBy: 201,
-            reviewedByName: 'Finance Admin',
-            fiscalYear: 2025,
-            fiscalPeriod: 'Q1',
-            createdAt: '2024-03-12T10:20:00Z'
-          }
-        ];
+        // Only add optional params if they have values
+        if (search) params.search = search;
+        if (statusFilter) params.status = statusFilter;
         
-        setData(mockData);
-      } catch (error) {
+        const response = await budgetRequestService.list(params);
+        
+        if (response.success && response.data) {
+          setData(response.data);
+        } else {
+          showError(response.error || 'Failed to load budget requests', 'Error');
+        }
+      } catch (error: any) {
         console.error('Error fetching data:', error);
-        showError('Failed to load budget requests', 'Error');
+        showError(error.message || 'Failed to load budget requests', 'Error');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [currentPage, pageSize, search, statusFilter, categoryFilter, dateFrom, dateTo, sortField, sortOrder]);
 
   // Filter and sort logic
   const filteredData = data.filter((item: BudgetRequest) => {
@@ -450,43 +358,80 @@ const BudgetRequestPage = () => {
   };
 
   // Add Budget Request
-    const handleAddBudgetRequest = async (newRequest: any) => {
-        try {
-            // Here you would make an API call to save the budget request
-            console.log('New budget request:', newRequest);
-            
-            // For now, add to local state (replace with actual API call)
-            const mockRequest: BudgetRequest = {
-                id: data.length + 1,
-                requestCode: `BR-2025-${String(data.length + 1).padStart(3, '0')}`,
-                purpose: newRequest.purpose,
-                justification: newRequest.justification,
-                amountRequested: newRequest.amountRequested,
-                status: newRequest.status as 'DRAFT' | 'SUBMITTED',
-                category: newRequest.category || 'Operations',
-                createdBy: 999, // Mock user ID
-                createdByName: newRequest.createdByName,
-                department: newRequest.department || 'Operations',
-                fiscalYear: newRequest.fiscalYear || 2025,
-                fiscalPeriod: newRequest.fiscalPeriod || 'Q1',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            setData(prev => [mockRequest, ...prev]);
-            showSuccess('Budget request created successfully', 'Success');
-            setShowAddModal(false);
-        } catch (error) {
-            console.error('Error creating budget request:', error);
-            showError('Failed to create budget request', 'Error');
+  const handleAddBudgetRequest = async (newRequest: any) => {
+    setLoading(true);
+    try {
+      console.log('Original newRequest received:', newRequest);
+      console.log('Items from newRequest:', newRequest.items);
+      
+      const createDto: CreateBudgetRequestDto = {
+        purpose: newRequest.purpose,
+        justification: newRequest.justification,
+        amountRequested: newRequest.amountRequested,
+        category: newRequest.category || 'Operations',
+        priority: newRequest.priority || undefined,
+        urgencyReason: newRequest.urgencyReason || undefined,
+        fiscalYear: newRequest.fiscalYear || 2025,
+        fiscalPeriod: newRequest.fiscalPeriod || 'Q1',
+        department: user?.department || 'operations',
+        createdByName: user?.username || 'Unknown User',
+        createdByRole: user?.role || 'Staff',
+        status: newRequest.status as 'DRAFT' | 'SUBMITTED',
+        start_date: newRequest.start_date,
+        end_date: newRequest.end_date,
+        items: newRequest.items,
+        supporting_documents: newRequest.supporting_documents
+      };
+      
+      console.log('CreateDTO being sent:', createDto);
+      console.log('Items in DTO:', createDto.items);
+      
+      const response = await budgetRequestService.create(createDto);
+      
+      if (response.success && response.data) {
+        // Refresh the list by re-fetching
+        const listResponse = await budgetRequestService.list({
+          page: currentPage,
+          limit: pageSize
+        });
+        
+        if (listResponse.success && listResponse.data) {
+          setData(listResponse.data);
         }
-    };
+        
+        showSuccess('Budget request created successfully', 'Success');
+        setShowAddModal(false);
+      } else {
+        showError(response.error || 'Failed to create budget request', 'Error');
+      }
+    } catch (error: any) {
+      console.error('Error creating budget request:', error);
+      showError(error.message || 'Failed to create budget request', 'Error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   // Action handlers
-  const handleView = (item: BudgetRequest) => {
-    setSelectedRequest(item);
-    setShowViewModal(true);
+  const handleView = async (item: BudgetRequest) => {
+    try {
+      // Fetch full details including itemAllocations
+      console.log('Fetching full budget request details for ID:', item.id);
+      const response = await budgetRequestService.getById(item.id);
+      
+      if (response.success && response.data) {
+        console.log('Full budget request data received:', response.data);
+        console.log('itemAllocations:', response.data.itemAllocations);
+        setSelectedRequest(response.data);
+        setShowViewModal(true);
+      } else {
+        showError(response.error || 'Failed to load budget request details', 'Error');
+      }
+    } catch (error: any) {
+      console.error('Error fetching budget request details:', error);
+      showError(error.message || 'Failed to load budget request details', 'Error');
+    }
   };
 
   const handleEdit = (item: BudgetRequest) => {
@@ -509,13 +454,21 @@ const BudgetRequestPage = () => {
     });
 
     if (result.isConfirmed) {
+      setLoading(true);
       try {
-        // Implement delete API call
-        setData(prev => prev.filter(item => item.id !== requestId));
-        showSuccess('Request deleted successfully', 'Deleted');
-      } catch (error) {
+        const response = await budgetRequestService.delete(requestId);
+        
+        if (response.success) {
+          setData(prev => prev.filter(item => item.id !== requestId));
+          showSuccess('Request deleted successfully', 'Deleted');
+        } else {
+          showError(response.error || 'Failed to delete request', 'Error');
+        }
+      } catch (error: any) {
         console.error('Delete error:', error);
-        showError('Failed to delete request', 'Error');
+        showError(error.message || 'Failed to delete request', 'Error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -533,17 +486,23 @@ const BudgetRequestPage = () => {
     });
 
     if (result.isConfirmed) {
+      setLoading(true);
       try {
-        // Implement submit API call
-        setData(prev => prev.map(item => 
-          item.id === requestId 
-            ? { ...item, status: 'SUBMITTED' as const }
-            : item
-        ));
-        showSuccess('Request submitted for approval', 'Success');
-      } catch (error) {
+        const response = await budgetRequestService.submit(requestId);
+        
+        if (response.success && response.data) {
+          setData(prev => prev.map(item => 
+            item.id === requestId ? response.data! : item
+          ));
+          showSuccess('Request submitted for approval', 'Success');
+        } else {
+          showError(response.error || 'Failed to submit request', 'Error');
+        }
+      } catch (error: any) {
         console.error('Submit error:', error);
-        showError('Failed to submit request', 'Error');
+        showError(error.message || 'Failed to submit request', 'Error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -562,21 +521,27 @@ const BudgetRequestPage = () => {
     });
 
     if (result.isConfirmed) {
+      setLoading(true);
       try {
-        // Implement approve API call
-        setData(prev => prev.map(item => 
-          item.id === requestId 
-            ? { 
-                ...item, 
-                status: 'APPROVED' as const,
-                reviewedByName: 'Finance Admin'
-              }
-            : item
-        ));
-        showSuccess('Request approved successfully', 'Approved');
-      } catch (error) {
+        const approvalData: ApprovalDto = {
+          reviewNotes: 'Approved by Finance Admin'
+        };
+        
+        const response = await budgetRequestService.approve(requestId, approvalData);
+        
+        if (response.success && response.data) {
+          setData(prev => prev.map(item => 
+            item.id === requestId ? response.data! : item
+          ));
+          showSuccess('Request approved successfully', 'Approved');
+        } else {
+          showError(response.error || 'Failed to approve request', 'Error');
+        }
+      } catch (error: any) {
         console.error('Approve error:', error);
-        showError('Failed to approve request', 'Error');
+        showError(error.message || 'Failed to approve request', 'Error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -602,22 +567,27 @@ const BudgetRequestPage = () => {
     });
 
     if (reason) {
+      setLoading(true);
       try {
-        // Implement reject API call
-        setData(prev => prev.map(item => 
-          item.id === requestId 
-            ? { 
-                ...item, 
-                status: 'REJECTED' as const,
-                reviewNotes: reason,
-                reviewedByName: 'Finance Admin'
-              }
-            : item
-        ));
-        showSuccess('Request rejected successfully', 'Rejected');
-      } catch (error) {
+        const rejectionData: RejectionDto = {
+          reviewNotes: reason
+        };
+        
+        const response = await budgetRequestService.reject(requestId, rejectionData);
+        
+        if (response.success && response.data) {
+          setData(prev => prev.map(item => 
+            item.id === requestId ? response.data! : item
+          ));
+          showSuccess('Request rejected successfully', 'Rejected');
+        } else {
+          showError(response.error || 'Failed to reject request', 'Error');
+        }
+      } catch (error: any) {
         console.error('Reject error:', error);
-        showError('Failed to reject request', 'Error');
+        showError(error.message || 'Failed to reject request', 'Error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -741,6 +711,12 @@ const BudgetRequestPage = () => {
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
+                  <th onClick={() => handleSort('priority')} className="sortable">
+                    Priority
+                    {sortField === 'priority' && (
+                      <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
+                    )}
+                  </th>
                   <th onClick={() => handleSort('amountRequested')} className="sortable">
                     Amount
                     {sortField === 'amountRequested' && (
@@ -792,6 +768,15 @@ const BudgetRequestPage = () => {
                       </div>
                     </td>
                     <td>{item.category}</td>
+                    <td>
+                      {item.priority ? (
+                        <span className={`priority-badge priority-${item.priority?.toLowerCase()}`}>
+                          {item.priority}
+                        </span>
+                      ) : (
+                        <span className="priority-badge priority-none">N/A</span>
+                      )}
+                    </td>
                     <td className="amount-cell">
                       ₱{item.amountRequested.toLocaleString(undefined, { 
                         minimumFractionDigits: 2, 
