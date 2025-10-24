@@ -64,10 +64,10 @@ export async function create(data: any, user: UserContext) {
     const br = await tx.budgetRequest.create({
       data: {
         department: data.department,
-        requestedBy: user.id,
-        requestedByName: user.username,
-        requestedByEmail: data.requestedByEmail,
-        requestedByRole: user.role,
+        createdBy: user.id,
+        createdByName: user.username,
+        createdByEmail: data.createdByEmail,
+        createdByRole: user.role,
         amountRequested: data.amountRequested,
         purpose: data.purpose,
         justification: data.justification,
@@ -81,8 +81,7 @@ export async function create(data: any, user: UserContext) {
         departmentBudgetRemaining: budget.remainingAmount,
         budgetShortfall: budgetShortfall > 0 ? budgetShortfall : 0,
         budgetBefore: budget.remainingAmount,
-        isDraft: true,
-        createdBy: user.id
+        status: 'DRAFT'
       }
     });
 
@@ -115,7 +114,7 @@ export async function submit(id: number, user: UserContext) {
   const updated = await prisma.budgetRequest.update({
     where: { id },
     data: {
-      isDraft: false,
+      status: 'SUBMITTED',
       updatedBy: user.id,
       updatedAt: new Date()
     }
@@ -131,10 +130,10 @@ export async function submit(id: number, user: UserContext) {
   await prisma.budgetRequestApprovalHistory.create({
     data: {
       budgetRequestId: id,
-      toStatus: 'PENDING',
+      fromStatus: 'DRAFT',
+      toStatus: 'SUBMITTED',
       changedBy: user.id,
       changedByName: user.username,
-      changedByRole: user.role,
       action: 'SUBMITTED',
       comments: 'Budget request submitted for review'
     }
@@ -184,7 +183,7 @@ export async function approve(id: number, approvalData: any, user: UserContext) 
         toStatus: 'APPROVED',
         changedBy: user.id,
         changedByName: user.username,
-        changedByRole: user.role,
+        changedByRole: user.role.includes('Admin') ? 'ADMIN' : 'NON_ADMIN',
         action: 'APPROVED',
         comments: approvalData.reviewNotes,
         amountBefore: existingRequest.amountRequested,
@@ -237,7 +236,7 @@ export async function reject(id: number, rejectionData: any, user: UserContext) 
         toStatus: 'REJECTED',
         changedBy: user.id,
         changedByName: user.username,
-        changedByRole: user.role,
+        changedByRole: user.role.includes('Admin') ? 'ADMIN' : 'NON_ADMIN',
         action: 'REJECTED',
         comments: rejectionData.reviewNotes
       }
@@ -265,7 +264,7 @@ export function checkAccess(budgetRequest: any, user: UserContext): boolean {
   }
 
   // Regular user: own requests only
-  return budgetRequest.requestedBy === user.id;
+  return budgetRequest.createdBy === user.id;
 }
 
 function getCurrentFiscalPeriod(): string {

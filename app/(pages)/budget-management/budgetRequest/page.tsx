@@ -17,19 +17,28 @@ import AuditTrailBudgetRequest from './auditTrailBudgetRequest';
 
 
 interface BudgetRequest {
-  request_id: string;
-  title: string;
-  description: string;
-  requested_amount: number;
-  status: 'Draft' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Closed';
+  id: number;
+  requestCode?: string;
+  purpose: string;
+  justification: string;
+  amountRequested: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   category: string;
-  requested_by: string;
-  request_date: string;
-  approval_date?: string;
-  approved_by?: string;
-  rejection_reason?: string;
-  created_at: string;
-  updated_at?: string;
+  priority?: string;
+  createdBy: number;
+  createdByName: string;
+  createdByEmail?: string;
+  department: string;
+  requestType?: string;
+  fiscalYear: number;
+  fiscalPeriod: string;
+  reservedAmount?: number;
+  bufferPercentage?: number;
+  reviewedBy?: number;
+  reviewedByName?: string;
+  reviewNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 const BudgetRequestPage = () => {
@@ -56,7 +65,7 @@ const BudgetRequestPage = () => {
     'Infrastructure',
     'Other'
   ]);
-  const [sortField, setSortField] = useState<keyof BudgetRequest>('request_date');
+  const [sortField, setSortField] = useState<keyof BudgetRequest>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const filterSections: FilterSection[] = [
@@ -71,11 +80,11 @@ const BudgetRequestPage = () => {
       title: 'Status',
       type: 'checkbox',
       options: [
-        { id: 'Draft', label: 'Draft' },
-        { id: 'Pending Approval', label: 'Pending Approval' },
-        { id: 'Approved', label: 'Approved' },
-        { id: 'Rejected', label: 'Rejected' },
-        { id: 'Closed', label: 'Closed' }
+        { id: 'DRAFT', label: 'Draft' },
+        { id: 'SUBMITTED', label: 'Submitted' },
+        { id: 'APPROVED', label: 'Approved' },
+        { id: 'REJECTED', label: 'Rejected' },
+        { id: 'CANCELLED', label: 'Cancelled' }
       ]
     },
     {
@@ -127,99 +136,140 @@ const BudgetRequestPage = () => {
         // Mock data
         const mockData: BudgetRequest[] = [
           {
-            request_id: 'BR001',
-            title: 'New Bus Maintenance Equipment',
-            description: 'Purchase of diagnostic equipment for bus maintenance including computerized diagnostic tools and specialized repair equipment for improving service quality.',
-            requested_amount: 50000,
-            status: 'Pending Approval',
+            id: 1,
+            requestCode: 'BR-2025-001',
+            purpose: 'New Bus Maintenance Equipment',
+            justification: 'Purchase of diagnostic equipment for bus maintenance including computerized diagnostic tools and specialized repair equipment for improving service quality.',
+            amountRequested: 50000,
+            status: 'SUBMITTED',
             category: 'Maintenance',
-            requested_by: 'John Doe',
-            request_date: '2024-03-15',
-            created_at: '2024-03-15T10:00:00Z'
+            department: 'Operations',
+            createdBy: 101,
+            createdByName: 'John Doe',
+            createdByEmail: 'john.doe@example.com',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-03-15T10:00:00Z'
           },
           {
-            request_id: 'BR002',
-            title: 'Marketing Campaign Q2',
-            description: 'Budget for digital marketing campaign including social media advertising, website improvements, and promotional materials to increase ridership.',
-            requested_amount: 25000,
-            status: 'Approved',
+            id: 2,
+            requestCode: 'BR-2025-002',
+            purpose: 'Marketing Campaign Q2',
+            justification: 'Budget for digital marketing campaign including social media advertising, website improvements, and promotional materials to increase ridership.',
+            amountRequested: 25000,
+            reservedAmount: 26250,
+            bufferPercentage: 5,
+            status: 'APPROVED',
             category: 'Marketing',
-            requested_by: 'Jane Smith',
-            request_date: '2024-03-10',
-            approval_date: '2024-03-12',
-            approved_by: 'Finance Admin',
-            created_at: '2024-03-10T14:30:00Z'
+            department: 'Operations',
+            createdBy: 102,
+            createdByName: 'Jane Smith',
+            reviewedBy: 201,
+            reviewedByName: 'Finance Admin',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q2',
+            createdAt: '2024-03-10T14:30:00Z'
           },
           {
-            request_id: 'BR003',
-            title: 'Driver Training Program',
-            description: 'Quarterly driver safety training program covering defensive driving techniques and vehicle maintenance basics for all fleet drivers.',
-            requested_amount: 15000,
-            status: 'Draft',
+            id: 3,
+            requestCode: 'BR-2025-003',
+            purpose: 'Driver Training Program',
+            justification: 'Quarterly driver safety training program covering defensive driving techniques and vehicle maintenance basics for all fleet drivers.',
+            amountRequested: 15000,
+            status: 'DRAFT',
             category: 'Training',
-            requested_by: 'Mike Johnson',
-            request_date: '2024-03-20',
-            created_at: '2024-03-20T09:15:00Z'
+            department: 'HR',
+            createdBy: 103,
+            createdByName: 'Mike Johnson',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-03-20T09:15:00Z'
           },
           {
-            request_id: 'BR004',
-            title: 'GPS Tracking System Upgrade',
-            description: 'Upgrade existing GPS tracking systems across the fleet with new hardware and software capabilities for better route optimization.',
-            requested_amount: 75000,
-            status: 'Rejected',
+            id: 4,
+            requestCode: 'BR-2025-004',
+            purpose: 'GPS Tracking System Upgrade',
+            justification: 'Upgrade existing GPS tracking systems across the fleet with new hardware and software capabilities for better route optimization.',
+            amountRequested: 75000,
+            status: 'REJECTED',
             category: 'Equipment',
-            requested_by: 'Sarah Wilson',
-            request_date: '2024-03-08',
-            rejection_reason: 'Budget constraints for Q1',
-            created_at: '2024-03-08T11:20:00Z'
+            department: 'Operations',
+            createdBy: 104,
+            createdByName: 'Sarah Wilson',
+            reviewedBy: 201,
+            reviewedByName: 'Finance Admin',
+            reviewNotes: 'Budget constraints for Q1',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-03-08T11:20:00Z'
           },
           {
-            request_id: 'BR005',
-            title: 'Terminal Infrastructure Repair',
-            description: 'Essential repairs to bus terminal facilities including roof repairs, electrical system updates, and passenger waiting areas renovation.',
-            requested_amount: 120000,
-            status: 'Closed',
+            id: 5,
+            requestCode: 'BR-2025-005',
+            purpose: 'Terminal Infrastructure Repair',
+            justification: 'Essential repairs to bus terminal facilities including roof repairs, electrical system updates, and passenger waiting areas renovation.',
+            amountRequested: 120000,
+            reservedAmount: 126000,
+            bufferPercentage: 5,
+            status: 'APPROVED',
             category: 'Infrastructure',
-            requested_by: 'Tom Brown',
-            request_date: '2024-02-25',
-            approval_date: '2024-02-28',
-            approved_by: 'Finance Admin',
-            created_at: '2024-02-25T16:45:00Z'
+            department: 'Operations',
+            createdBy: 105,
+            createdByName: 'Tom Brown',
+            reviewedBy: 201,
+            reviewedByName: 'Finance Admin',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-02-25T16:45:00Z'
           },
           {
-            request_id: 'BR006',
-            title: 'Fleet Expansion Vehicles',
-            description: 'Purchase of 3 additional buses to expand route coverage and reduce passenger wait times during peak hours.',
-            requested_amount: 450000,
-            status: 'Pending Approval',
+            id: 6,
+            requestCode: 'BR-2025-006',
+            purpose: 'Fleet Expansion Vehicles',
+            justification: 'Purchase of 3 additional buses to expand route coverage and reduce passenger wait times during peak hours.',
+            amountRequested: 450000,
+            status: 'SUBMITTED',
             category: 'Operations',
-            requested_by: 'David Lee',
-            request_date: '2024-03-18',
-            created_at: '2024-03-18T13:30:00Z'
+            department: 'Operations',
+            createdBy: 106,
+            createdByName: 'David Lee',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q2',
+            createdAt: '2024-03-18T13:30:00Z'
           },
           {
-            request_id: 'BR007',
-            title: 'Office Equipment Upgrade',
-            description: 'Replacement of outdated computers and office equipment for administrative staff to improve operational efficiency.',
-            requested_amount: 18000,
-            status: 'Draft',
+            id: 7,
+            requestCode: 'BR-2025-007',
+            purpose: 'Office Equipment Upgrade',
+            justification: 'Replacement of outdated computers and office equipment for administrative staff to improve operational efficiency.',
+            amountRequested: 18000,
+            status: 'DRAFT',
             category: 'Other',
-            requested_by: 'Lisa Martinez',
-            request_date: '2024-03-22',
-            created_at: '2024-03-22T08:45:00Z'
+            department: 'Operations',
+            createdBy: 107,
+            createdByName: 'Lisa Martinez',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-03-22T08:45:00Z'
           },
           {
-            request_id: 'BR008',
-            title: 'Safety Equipment Update',
-            description: 'Purchase of updated safety equipment including first aid kits, fire extinguishers, and emergency communication devices for all vehicles.',
-            requested_amount: 8500,
-            status: 'Approved',
+            id: 8,
+            requestCode: 'BR-2025-008',
+            purpose: 'Safety Equipment Update',
+            justification: 'Purchase of updated safety equipment including first aid kits, fire extinguishers, and emergency communication devices for all vehicles.',
+            amountRequested: 8500,
+            reservedAmount: 8925,
+            bufferPercentage: 5,
+            status: 'APPROVED',
             category: 'Equipment',
-            requested_by: 'Robert Garcia',
-            request_date: '2024-03-12',
-            approval_date: '2024-03-14',
-            approved_by: 'Operations Manager',
-            created_at: '2024-03-12T10:20:00Z'
+            department: 'Operations',
+            createdBy: 108,
+            createdByName: 'Robert Garcia',
+            reviewedBy: 201,
+            reviewedByName: 'Finance Admin',
+            fiscalYear: 2025,
+            fiscalPeriod: 'Q1',
+            createdAt: '2024-03-12T10:20:00Z'
           }
         ];
         
@@ -240,13 +290,14 @@ const BudgetRequestPage = () => {
     const searchLower = search.toLowerCase();
 
     const matchesSearch = search === '' || 
-      item.title.toLowerCase().includes(searchLower) ||
-      item.description.toLowerCase().includes(searchLower) ||
+      item.purpose.toLowerCase().includes(searchLower) ||
+      item.justification.toLowerCase().includes(searchLower) ||
       item.category.toLowerCase().includes(searchLower) ||
       item.status.toLowerCase().includes(searchLower) ||
-      item.requested_by.toLowerCase().includes(searchLower) ||
-      item.requested_amount.toString().includes(searchLower) ||
-      item.request_id.toLowerCase().includes(searchLower);
+      item.createdByName.toLowerCase().includes(searchLower) ||
+      item.department.toLowerCase().includes(searchLower) ||
+      item.amountRequested.toString().includes(searchLower) ||
+      (item.requestCode && item.requestCode.toLowerCase().includes(searchLower));
 
     const matchesStatus = statusFilter ? 
       statusFilter.split(',').some(status => item.status === status.trim()) : true;
@@ -254,7 +305,7 @@ const BudgetRequestPage = () => {
     const matchesCategory = categoryFilter ? 
       categoryFilter.split(',').some(cat => item.category === cat.trim()) : true;
 
-    const itemDate = new Date(item.request_date).toISOString().split('T')[0];
+    const itemDate = new Date(item.createdAt).toISOString().split('T')[0];
     const matchesDate = (!dateFrom || itemDate >= dateFrom) && 
       (!dateTo || itemDate <= dateTo);
 
@@ -283,18 +334,29 @@ const BudgetRequestPage = () => {
   const StatusBadge = ({ status }: { status: string }) => {
     const getStatusClass = (status: string) => {
       switch (status) {
-        case 'Draft': return 'Draft';
-        case 'Pending Approval': return 'pending-approval';
-        case 'Approved': return 'Approved';
-        case 'Rejected': return 'Rejected';
-        case 'Closed': return 'Closed';
+        case 'DRAFT': return 'Draft';
+        case 'SUBMITTED': return 'pending-approval';
+        case 'APPROVED': return 'Approved';
+        case 'REJECTED': return 'Rejected';
+        case 'CANCELLED': return 'Closed';
         default: return 'Draft';
+      }
+    };
+
+    const getStatusLabel = (status: string) => {
+      switch (status) {
+        case 'DRAFT': return 'Draft';
+        case 'SUBMITTED': return 'Submitted';
+        case 'APPROVED': return 'Approved';
+        case 'REJECTED': return 'Rejected';
+        case 'CANCELLED': return 'Cancelled';
+        default: return status;
       }
     };
 
     return (
       <span className={`chip ${getStatusClass(status)}`}>
-        {status}
+        {getStatusLabel(status)}
       </span>
     );
   };
@@ -316,7 +378,7 @@ const BudgetRequestPage = () => {
     );
 
     switch (item.status) {
-      case 'Draft':
+      case 'DRAFT':
         buttons.push(
           <button 
             key="edit"
@@ -329,7 +391,7 @@ const BudgetRequestPage = () => {
           <button 
             key="delete"
             className="deleteBtn" 
-            onClick={() => handleDelete(item.request_id)}
+            onClick={() => handleDelete(item.id)}
             title="Delete Request"
           >
             <i className="ri-delete-bin-line" />
@@ -337,7 +399,7 @@ const BudgetRequestPage = () => {
           <button 
             key="submit"
             className="submitBtn" 
-            onClick={() => handleSubmit(item.request_id)}
+            onClick={() => handleSubmit(item.id)}
             title="Submit for Approval"
           >
             <i className="ri-send-plane-line" />
@@ -345,10 +407,10 @@ const BudgetRequestPage = () => {
         );
         break;
       
-      case 'Pending Approval':
+      case 'SUBMITTED':
         break;
       
-      case 'Rejected':
+      case 'REJECTED':
         buttons.push(
           <button 
             key="export"
@@ -361,7 +423,8 @@ const BudgetRequestPage = () => {
         );
         break;
         
-      case 'Closed':
+      case 'APPROVED':
+      case 'CANCELLED':
         buttons.push(
           <button 
             key="export"
@@ -374,7 +437,7 @@ const BudgetRequestPage = () => {
           <button 
             key="audit"
             className="auditBtn" 
-            onClick={() => handleAuditTrail(item.request_id)}
+            onClick={() => handleAuditTrail(item.id)}
             title="View Audit Trail"
           >
             <i className="ri-history-line" />
@@ -393,19 +456,21 @@ const BudgetRequestPage = () => {
             console.log('New budget request:', newRequest);
             
             // For now, add to local state (replace with actual API call)
-            const mockRequest = {
-                request_id: `BR${String(data.length + 1).padStart(3, '0')}`,
-                title: newRequest.title,
-                description: newRequest.description,
-                requested_amount: newRequest.total_amount, // Map total_amount to requested_amount
-                status: newRequest.status,
-                category: 'Operations', // You may want to add category to your form
-                requested_by: newRequest.requester_name,
-                request_date: newRequest.request_date,
-                approval_date: newRequest.approval_date,
-                approved_by: newRequest.approved_by,
-                rejection_reason: newRequest.rejection_reason,
-                created_at: new Date().toISOString()
+            const mockRequest: BudgetRequest = {
+                id: data.length + 1,
+                requestCode: `BR-2025-${String(data.length + 1).padStart(3, '0')}`,
+                purpose: newRequest.purpose,
+                justification: newRequest.justification,
+                amountRequested: newRequest.amountRequested,
+                status: newRequest.status as 'DRAFT' | 'SUBMITTED',
+                category: newRequest.category || 'Operations',
+                createdBy: 999, // Mock user ID
+                createdByName: newRequest.createdByName,
+                department: newRequest.department || 'Operations',
+                fiscalYear: newRequest.fiscalYear || 2025,
+                fiscalPeriod: newRequest.fiscalPeriod || 'Q1',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
             
             setData(prev => [mockRequest, ...prev]);
@@ -430,7 +495,7 @@ const BudgetRequestPage = () => {
     // Implement edit modal
   };
 
-  const handleDelete = async (requestId: string) => {
+  const handleDelete = async (requestId: number) => {
     const result = await Swal.fire({
       title: 'Are you sure?',
       text: 'This will delete the budget request permanently.',
@@ -446,7 +511,7 @@ const BudgetRequestPage = () => {
     if (result.isConfirmed) {
       try {
         // Implement delete API call
-        setData(prev => prev.filter(item => item.request_id !== requestId));
+        setData(prev => prev.filter(item => item.id !== requestId));
         showSuccess('Request deleted successfully', 'Deleted');
       } catch (error) {
         console.error('Delete error:', error);
@@ -455,7 +520,7 @@ const BudgetRequestPage = () => {
     }
   };
 
-  const handleSubmit = async (requestId: string) => {
+  const handleSubmit = async (requestId: number) => {
     const result = await Swal.fire({
       title: 'Submit for Approval?',
       text: 'Once submitted, you cannot edit this request.',
@@ -471,8 +536,8 @@ const BudgetRequestPage = () => {
       try {
         // Implement submit API call
         setData(prev => prev.map(item => 
-          item.request_id === requestId 
-            ? { ...item, status: 'Pending Approval' as const }
+          item.id === requestId 
+            ? { ...item, status: 'SUBMITTED' as const }
             : item
         ));
         showSuccess('Request submitted for approval', 'Success');
@@ -484,7 +549,7 @@ const BudgetRequestPage = () => {
   };
 
   // New admin functions
-  const handleApprove = async (requestId: string) => {
+  const handleApprove = async (requestId: number) => {
     const result = await Swal.fire({
       title: 'Approve Budget Request?',
       text: 'This will approve the budget request and allocate funds.',
@@ -500,12 +565,11 @@ const BudgetRequestPage = () => {
       try {
         // Implement approve API call
         setData(prev => prev.map(item => 
-          item.request_id === requestId 
+          item.id === requestId 
             ? { 
                 ...item, 
-                status: 'Approved' as const,
-                approval_date: new Date().toISOString().split('T')[0],
-                approved_by: 'Finance Admin'
+                status: 'APPROVED' as const,
+                reviewedByName: 'Finance Admin'
               }
             : item
         ));
@@ -517,7 +581,7 @@ const BudgetRequestPage = () => {
     }
   };
 
-  const handleReject = async (requestId: string) => {
+  const handleReject = async (requestId: number) => {
     const { value: reason } = await Swal.fire({
       title: 'Reject Budget Request',
       input: 'textarea',
@@ -541,12 +605,12 @@ const BudgetRequestPage = () => {
       try {
         // Implement reject API call
         setData(prev => prev.map(item => 
-          item.request_id === requestId 
+          item.id === requestId 
             ? { 
                 ...item, 
-                status: 'Rejected' as const,
-                rejection_reason: reason,
-                approved_by: 'Finance Admin'
+                status: 'REJECTED' as const,
+                reviewNotes: reason,
+                reviewedByName: 'Finance Admin'
               }
             : item
         ));
@@ -560,12 +624,12 @@ const BudgetRequestPage = () => {
 
   const handleExportSingle = (item: BudgetRequest) => {
     console.log('Export single:', item);
-    showSuccess(`Exporting request ${item.request_id}...`, 'Export Started');
+    showSuccess(`Exporting request ${item.requestCode || item.id}...`, 'Export Started');
     // Implement single request export
   };
 
-    const handleAuditTrail = (requestId: string) => {
-        const request = data.find(item => item.request_id === requestId);
+    const handleAuditTrail = (requestId: number) => {
+        const request = data.find(item => item.id === requestId);
         if (request) {
             setSelectedRequestForAudit(request);
             setShowAuditModal(true);
@@ -659,15 +723,15 @@ const BudgetRequestPage = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th onClick={() => handleSort('request_date')} className="sortable">
+                  <th onClick={() => handleSort('createdAt')} className="sortable">
                     Request Date
-                    {sortField === 'request_date' && (
+                    {sortField === 'createdAt' && (
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
-                  <th onClick={() => handleSort('title')} className="sortable">
-                    Title
-                    {sortField === 'title' && (
+                  <th onClick={() => handleSort('purpose')} className="sortable">
+                    Purpose
+                    {sortField === 'purpose' && (
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
@@ -677,9 +741,9 @@ const BudgetRequestPage = () => {
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
-                  <th onClick={() => handleSort('requested_amount')} className="sortable">
+                  <th onClick={() => handleSort('amountRequested')} className="sortable">
                     Amount
-                    {sortField === 'requested_amount' && (
+                    {sortField === 'amountRequested' && (
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
@@ -689,9 +753,9 @@ const BudgetRequestPage = () => {
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
-                  <th onClick={() => handleSort('requested_by')} className="sortable">
+                  <th onClick={() => handleSort('createdByName')} className="sortable">
                     Requested By
-                    {sortField === 'requested_by' && (
+                    {sortField === 'createdByName' && (
                       <i className={`ri-arrow-${sortOrder === 'asc' ? 'up' : 'down'}-line`} />
                     )}
                   </th>
@@ -701,7 +765,7 @@ const BudgetRequestPage = () => {
               <tbody>
                 {currentRecords.map(item => (
                   <tr 
-                    key={item.request_id}
+                    key={item.id}
                     onClick={(e) => {
                         // Prevent row click when clicking on action buttons
                         if (!(e.target as HTMLElement).closest('.actionButtonsContainer')) {
@@ -710,32 +774,32 @@ const BudgetRequestPage = () => {
                     }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td>{formatDate(item.request_date)}</td>
+                    <td>{formatDate(item.createdAt)}</td>
                     <td>
                       <div className="request-title">
-                        <strong title={item.title.length > 30 ? item.title : undefined}>
-                            {item.title}
+                        <strong title={item.purpose.length > 30 ? item.purpose : undefined}>
+                            {item.purpose}
                         </strong>
                         <div 
                             className="request-description" 
-                            title={item.description.length > 60 ? item.description : undefined}
+                            title={item.justification.length > 60 ? item.justification : undefined}
                         >
-                            {item.description.length > 60 
-                            ? `${item.description.substring(0, 60)}...` 
-                            : item.description
+                            {item.justification.length > 60 
+                            ? `${item.justification.substring(0, 60)}...` 
+                            : item.justification
                             }
                         </div>
                       </div>
                     </td>
                     <td>{item.category}</td>
                     <td className="amount-cell">
-                      ₱{item.requested_amount.toLocaleString(undefined, { 
+                      ₱{item.amountRequested.toLocaleString(undefined, { 
                         minimumFractionDigits: 2, 
                         maximumFractionDigits: 2 
                       })}
                     </td>
                     <td><StatusBadge status={item.status} /></td>
-                    <td>{item.requested_by}</td>
+                    <td>{item.createdByName}</td>
                     <td className="actionButtons">
                       <div className="actionButtonsContainer">
                         {getActionButtons(item)}
@@ -769,8 +833,8 @@ const BudgetRequestPage = () => {
 
         {showAuditModal && selectedRequestForAudit && (
             <AuditTrailBudgetRequest
-                requestId={selectedRequestForAudit.request_id}
-                requestTitle={selectedRequestForAudit.title}
+                requestId={selectedRequestForAudit.requestCode || `REQ-${selectedRequestForAudit.id}`}
+                requestTitle={selectedRequestForAudit.purpose}
                 onClose={() => {
                 setShowAuditModal(false);
                 setSelectedRequestForAudit(null);

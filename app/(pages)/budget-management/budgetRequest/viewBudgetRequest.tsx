@@ -16,23 +16,30 @@ interface BudgetItem {
 }
 
 interface BudgetRequest {
-  request_id: string;
-  title: string;
-  description: string;
-  requested_amount: number;
-  status: 'Draft' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Closed';
+  id: number;
+  requestCode?: string;
+  purpose: string;
+  justification: string;
+  amountRequested: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   category: string;
-  requested_by: string;
-  request_date: string;
-  approval_date?: string;
-  approved_by?: string;
-  rejection_reason?: string;
-  created_at: string;
-  updated_at?: string;
-  // Extended fields that would come from your database
-  department?: string;
+  createdBy: number;
+  createdByName: string;
+  department: string;
+  fiscalYear: number;
+  fiscalPeriod: string;
+  reservedAmount?: number;
+  bufferPercentage?: number;
+  reviewedBy?: number;
+  reviewedByName?: string;
+  reviewNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  cancelledAt?: string;
+  // Extended fields
   requester_position?: string;
-  budget_period?: string;
   start_date?: string;
   end_date?: string;
   items?: BudgetItem[];
@@ -57,20 +64,31 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
   
   // Status badge component (reuse from your main page)
   const StatusBadge = ({ status }: { status: string }) => {
+    const getStatusLabel = (status: string) => {
+      switch (status) {
+        case 'DRAFT': return 'Draft';
+        case 'SUBMITTED': return 'Submitted';
+        case 'APPROVED': return 'Approved';
+        case 'REJECTED': return 'Rejected';
+        case 'CANCELLED': return 'Cancelled';
+        default: return status;
+      }
+    };
+
     const getStatusClass = (status: string) => {
       switch (status) {
-        case 'Draft': return 'Draft';
-        case 'Pending Approval': return 'pending-approval';
-        case 'Approved': return 'Approved';
-        case 'Rejected': return 'Rejected';
-        case 'Closed': return 'Closed';
+        case 'DRAFT': return 'Draft';
+        case 'SUBMITTED': return 'pending-approval';
+        case 'APPROVED': return 'Approved';
+        case 'REJECTED': return 'Rejected';
+        case 'CANCELLED': return 'Closed';
         default: return 'Draft';
       }
     };
 
     return (
       <span className={`chip ${getStatusClass(status)}`}>
-        {status}
+        {getStatusLabel(status)}
       </span>
     );
   };
@@ -101,36 +119,36 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
     const history = [
       {
         action: 'Request Created',
-        user: request.requested_by,
-        date: request.created_at,
+        user: request.createdByName,
+        date: request.createdAt,
         details: `Created as ${request.status}`
       }
     ];
 
-    if (request.status === 'Approved' && request.approval_date && request.approved_by) {
+    if (request.status === 'APPROVED' && request.approvedAt && request.reviewedByName) {
       history.push({
         action: 'Request Approved',
-        user: request.approved_by,
-        date: request.approval_date,
+        user: request.reviewedByName,
+        date: request.approvedAt,
         details: 'Budget request approved and funds allocated'
       });
     }
 
-    if (request.status === 'Rejected' && request.approved_by) {
+    if (request.status === 'REJECTED' && request.reviewedByName) {
       history.push({
         action: 'Request Rejected',
-        user: request.approved_by,
-        date: request.approval_date || request.updated_at || '',
-        details: request.rejection_reason || 'No reason provided'
+        user: request.reviewedByName,
+        date: request.rejectedAt || request.updatedAt || '',
+        details: request.reviewNotes || 'No reason provided'
       });
     }
 
-    if (request.status === 'Closed') {
+    if (request.status === 'CANCELLED') {
       history.push({
-        action: 'Request Closed',
-        user: request.approved_by || 'System',
-        date: request.updated_at || '',
-        details: 'Budget request completed and closed'
+        action: 'Request Cancelled',
+        user: request.reviewedByName || 'System',
+        date: request.cancelledAt || request.updatedAt || '',
+        details: request.reviewNotes || 'Budget request cancelled'
       });
     }
 
@@ -167,25 +185,37 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
             
             <div className="displayRow">
               <div className="displayField displayFieldHalf">
-                <label>Request ID</label>
-                <div className="displayValue highlightValue">{request.request_id}</div>
+                <label>Request Code</label>
+                <div className="displayValue highlightValue">{request.requestCode || `REQ-${request.id}`}</div>
               </div>
               
               <div className="displayField displayFieldHalf">
                 <label>Date of Request</label>
-                <div className="displayValue">{formatDate(request.request_date)}</div>
+                <div className="displayValue">{formatDate(request.createdAt)}</div>
               </div>
             </div>
 
             <div className="displayRow">
               <div className="displayField displayFieldHalf">
                 <label>Department</label>
-                <div className="displayValue">{request.department || 'Operations'}</div>
+                <div className="displayValue">{request.department}</div>
               </div>
               
               <div className="displayField displayFieldHalf">
                 <label>Requester Name</label>
-                <div className="displayValue">{request.requested_by}</div>
+                <div className="displayValue">{request.createdByName}</div>
+              </div>
+            </div>
+
+            <div className="displayRow">
+              <div className="displayField displayFieldHalf">
+                <label>Fiscal Year</label>
+                <div className="displayValue">{request.fiscalYear}</div>
+              </div>
+              
+              <div className="displayField displayFieldHalf">
+                <label>Fiscal Period</label>
+                <div className="displayValue">{request.fiscalPeriod}</div>
               </div>
             </div>
 
@@ -206,29 +236,43 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
             
             <div className="displayRow">
               <div className="displayField displayFieldHalf">
-                <label>Budget Period</label>
-                <div className="displayValue">{request.budget_period || 'One Time Use'}</div>
-              </div>
-              
-              <div className="displayField displayFieldHalf">
                 <label>Requested Amount</label>
                 <div className="displayValue highlightValue">
-                  ₱{request.requested_amount.toLocaleString(undefined, { 
+                  ₱{request.amountRequested.toLocaleString(undefined, { 
                     minimumFractionDigits: 2, 
                     maximumFractionDigits: 2 
                   })}
                 </div>
               </div>
+              
+              {request.reservedAmount && (
+                <div className="displayField displayFieldHalf">
+                  <label>Reserved Amount</label>
+                  <div className="displayValue highlightValue">
+                    ₱{request.reservedAmount.toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {request.bufferPercentage && (
+                <div className="displayField displayFieldHalf">
+                  <label>Buffer Percentage</label>
+                  <div className="displayValue">{request.bufferPercentage}%</div>
+                </div>
+              )}
             </div>
 
             <div className="displayField">
-              <label>Budget Title / Project Name</label>
-              <div className="displayValue highlightValue">{request.title}</div>
+              <label>Budget Purpose / Project Name</label>
+              <div className="displayValue highlightValue">{request.purpose}</div>
             </div>
 
             <div className="displayField">
-              <label>Description</label>
-              <div className="displayValue displayValueTextarea">{request.description}</div>
+              <label>Justification</label>
+              <div className="displayValue displayValueTextarea">{request.justification}</div>
             </div>
 
             <div className="displayRow">
@@ -351,29 +395,30 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
               )}
             </div>
 
-            {/* Approval Information */}
-            {(request.status === 'Approved' || request.status === 'Rejected') && (
+            {/* Review Information */}
+            {(request.status === 'APPROVED' || request.status === 'REJECTED') && (
               <>
-                <div className="sectionHeader">Approval Information</div>
+                <div className="sectionHeader">Review Information</div>
                 <div className="displayRow">
                   <div className="displayField displayFieldHalf">
-                    <label>{request.status === 'Approved' ? 'Approved By' : 'Rejected By'}</label>
-                    <div className="displayValue">{request.approved_by || 'Not specified'}</div>
+                    <label>{request.status === 'APPROVED' ? 'Approved By' : 'Rejected By'}</label>
+                    <div className="displayValue">{request.reviewedByName || 'Not specified'}</div>
                   </div>
                   
                   <div className="displayField displayFieldHalf">
-                    <label>{request.status === 'Approved' ? 'Approval Date' : 'Rejection Date'}</label>
+                    <label>{request.status === 'APPROVED' ? 'Approval Date' : 'Rejection Date'}</label>
                     <div className="displayValue">
-                      {request.approval_date ? formatDate(request.approval_date) : 
+                      {request.status === 'APPROVED' && request.approvedAt ? formatDate(request.approvedAt) :
+                       request.status === 'REJECTED' && request.rejectedAt ? formatDate(request.rejectedAt) :
                        <span className="displayValueEmpty">Not specified</span>}
                     </div>
                   </div>
                 </div>
 
-                {request.status === 'Rejected' && request.rejection_reason && (
+                {request.reviewNotes && (
                   <div className="displayField">
-                    <label>Rejection Reason</label>
-                    <div className="displayValue displayValueTextarea">{request.rejection_reason}</div>
+                    <label>{request.status === 'REJECTED' ? 'Rejection Reason' : 'Review Notes'}</label>
+                    <div className="displayValue displayValueTextarea">{request.reviewNotes}</div>
                   </div>
                 )}
               </>
@@ -408,7 +453,7 @@ const ViewBudgetRequest: React.FC<ViewBudgetRequestProps> = ({
                 <i className="ri-download-line" /> Export
               </button>
             )}
-            {onEdit && request.status === 'Draft' && (
+            {onEdit && request.status === 'DRAFT' && (
               <button className="editButton" onClick={() => onEdit(request)}>
                 <i className="ri-edit-line" /> Edit
               </button>

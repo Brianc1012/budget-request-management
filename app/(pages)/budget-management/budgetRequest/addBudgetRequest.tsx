@@ -18,20 +18,21 @@ interface BudgetItem {
 }
 
 interface NewBudgetRequest {
-  title: string;
-  description: string;
+  purpose: string;
+  justification: string;
   department: string;
-  requester_name: string;
-  requester_position: string;
-  request_date: string;
-  budget_period: string;
-  total_amount: number;
-  start_date: string;
-  end_date: string;
+  createdByName: string;
+  createdByRole: string;
+  amountRequested: number;
+  fiscalYear: number;
+  fiscalPeriod: string;
+  category: string;
+  start_date?: string;
+  end_date?: string;
   items?: BudgetItem[];
   supporting_documents?: File[];
-  status: 'Draft' | 'Pending Approval';
-  created_by: string;
+  status: 'DRAFT' | 'SUBMITTED';
+  createdBy: number;
 }
 
 interface AddBudgetRequestProps {
@@ -40,7 +41,7 @@ interface AddBudgetRequestProps {
   currentUser: string;
 }
 
-type FieldName = 'title' | 'description' | 'total_amount' | 'start_date' | 'end_date' | 'budget_period';
+type FieldName = 'purpose' | 'justification' | 'amountRequested' | 'start_date' | 'end_date' | 'fiscalPeriod' | 'category';
 
 const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
   onClose,
@@ -48,26 +49,28 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
   currentUser
 }) => {
   const [errors, setErrors] = useState<Record<FieldName, string[]>>({
-    title: [],
-    description: [],
-    total_amount: [],
+    purpose: [],
+    justification: [],
+    amountRequested: [],
     start_date: [],
     end_date: [],
-    budget_period: []
+    fiscalPeriod: [],
+    category: []
   });
 
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
+    purpose: '',
+    justification: '',
     department: 'Operations', // Auto-filled
-    requester_name: 'Admin User', // Auto-filled
-    requester_position: 'Administrator', // Auto-filled
-    request_date: new Date().toISOString().split('T')[0],
-    budget_period: 'One Time Use',
-    total_amount: 0,
+    createdByName: 'Admin User', // Auto-filled
+    createdByRole: 'Administrator', // Auto-filled
+    fiscalYear: 2025,
+    fiscalPeriod: 'Q1',
+    category: 'Operations',
+    amountRequested: 0,
     start_date: '',
     end_date: '',
-    created_by: currentUser
+    createdBy: 999 // Mock user ID
   });
 
   const [items, setItems] = useState<BudgetItem[]>([]);
@@ -76,20 +79,21 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
   const [dragOver, setDragOver] = useState(false);
 
   const validationRules: Record<FieldName, ValidationRule> = {
-    title: { required: true, label: "Budget Title" },
-    description: { required: true, label: "Description" },
-    total_amount: {
+    purpose: { required: true, label: "Budget Purpose" },
+    justification: { required: true, label: "Justification" },
+    amountRequested: {
       required: true,
       min: 0.01,
-      label: "Total Amount",
+      label: "Amount Requested",
       custom: (v: unknown) => {
         const numValue = typeof v === 'number' ? v : Number(v);
         return isValidAmount(numValue) ? null : "Amount must be greater than 0.";
       }
     },
-    start_date: { required: true, label: "Start Date" },
-    end_date: { required: true, label: "End Date" },
-    budget_period: { required: true, label: "Budget Period" }
+    start_date: { required: false, label: "Start Date" },
+    end_date: { required: false, label: "End Date" },
+    fiscalPeriod: { required: true, label: "Fiscal Period" },
+    category: { required: true, label: "Category" }
   };
 
   // Calculate total from items
@@ -258,7 +262,7 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
       try {
         const payload: NewBudgetRequest = {
           ...formData,
-          status: saveAsDraft ? 'Draft' : 'Pending Approval',
+          status: saveAsDraft ? 'DRAFT' : 'SUBMITTED',
           items: showItems && items.length > 0 ? items : undefined,
           supporting_documents: supportingDocuments.length > 0 ? supportingDocuments : undefined
         };
@@ -308,12 +312,12 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                 </div>
                 
                 <div className="formField formFieldHalf">
-                  <label htmlFor="requester_name">Requester Name</label>
+                  <label htmlFor="createdByName">Requester Name</label>
                   <input
                     type="text"
-                    id="requester_name"
-                    name="requester_name"
-                    value={formData.requester_name}
+                    id="createdByName"
+                    name="createdByName"
+                    value={formData.createdByName}
                     readOnly
                     className="formInput"
                   />
@@ -323,12 +327,12 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
 
               <div className="formRow">
                 <div className="formField formFieldHalf">
-                  <label htmlFor="requester_position">Requester Position</label>
+                  <label htmlFor="createdByRole">Requester Role</label>
                   <input
                     type="text"
-                    id="requester_position"
-                    name="requester_position"
-                    value={formData.requester_position}
+                    id="createdByRole"
+                    name="createdByRole"
+                    value={formData.createdByRole}
                     readOnly
                     className="formInput"
                   />
@@ -336,16 +340,16 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
                 </div>
                 
                 <div className="formField formFieldHalf">
-                  <label htmlFor="request_date">Date of Request</label>
+                  <label htmlFor="fiscalYear">Fiscal Year</label>
                   <input
-                    type="date"
-                    id="request_date"
-                    name="request_date"
-                    value={formData.request_date}
+                    type="number"
+                    id="fiscalYear"
+                    name="fiscalYear"
+                    value={formData.fiscalYear}
                     readOnly
                     className="formInput"
                   />
-                  <span className="autofill-note">Auto-filled with current date</span>
+                  <span className="autofill-note">Auto-filled with current fiscal year</span>
                 </div>
               </div>
 
@@ -354,78 +358,103 @@ const AddBudgetRequest: React.FC<AddBudgetRequestProps> = ({
               
               <div className="formRow">
                 <div className="formField formFieldHalf">
-                  <label htmlFor="budget_period">Budget Period<span className='requiredTags'> *</span></label>
+                  <label htmlFor="fiscalPeriod">Fiscal Period<span className='requiredTags'> *</span></label>
                   <select
-                    id="budget_period"
-                    name="budget_period"
-                    value={formData.budget_period}
+                    id="fiscalPeriod"
+                    name="fiscalPeriod"
+                    value={formData.fiscalPeriod}
                     onChange={handleInputChange}
                     required
                     className="formSelect"
                   >
-                    <option value="One Time Use">One Time Use</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Yearly">Yearly</option>
+                    <option value="Q1">Quarter 1 (Q1)</option>
+                    <option value="Q2">Quarter 2 (Q2)</option>
+                    <option value="Q3">Quarter 3 (Q3)</option>
+                    <option value="Q4">Quarter 4 (Q4)</option>
+                    <option value="H1">Half 1 (H1)</option>
+                    <option value="H2">Half 2 (H2)</option>
+                    <option value="FY">Full Year (FY)</option>
                   </select>
-                  {errors.budget_period?.map((msg, i) => (
+                  {errors.fiscalPeriod?.map((msg: string, i: number) => (
                     <div className="error-message" key={i}>{msg}</div>
                   ))}
                 </div>
                 
                 <div className="formField formFieldHalf">
-                  <label htmlFor="total_amount">Total Amount Requested<span className='requiredTags'> *</span></label>
-                  <input
-                    type="number"
-                    id="total_amount"
-                    name="total_amount"
-                    value={formData.total_amount}
+                  <label htmlFor="category">Category<span className='requiredTags'> *</span></label>
+                  <select
+                    id="category"
+                    name="category"
+                    value={formData.category}
                     onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
                     required
-                    className="formInput"
-                    readOnly={showItems && items.length > 0}
-                  />
-                  {showItems && items.length > 0 && (
-                    <span className="autofill-note">Auto-calculated from items below</span>
-                  )}
-                  {errors.total_amount?.map((msg, i) => (
+                    className="formSelect"
+                  >
+                    <option value="Operations">Operations</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Capital">Capital</option>
+                    <option value="Personnel">Personnel</option>
+                    <option value="Emergency">Emergency</option>
+                  </select>
+                  {errors.category?.map((msg: string, i: number) => (
                     <div className="error-message" key={i}>{msg}</div>
                   ))}
                 </div>
               </div>
 
               <div className="formField">
-                <label htmlFor="title">Budget Title / Project Name<span className='requiredTags'> *</span></label>
+                <label htmlFor="amountRequested">Amount Requested<span className='requiredTags'> *</span></label>
                 <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
+                  type="number"
+                  id="amountRequested"
+                  name="amountRequested"
+                  value={formData.amountRequested}
                   onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
                   required
                   className="formInput"
-                  placeholder="Enter budget title or project name"
+                  readOnly={showItems && items.length > 0}
+                  placeholder="0.00"
                 />
-                {errors.title?.map((msg, i) => (
+                {showItems && items.length > 0 && (
+                  <span className="autofill-note">Auto-calculated from items below</span>
+                )}
+                {errors.amountRequested?.map((msg: string, i: number) => (
                   <div className="error-message" key={i}>{msg}</div>
                 ))}
               </div>
 
               <div className="formField">
-                <label htmlFor="description">Description<span className='requiredTags'> *</span></label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
+                <label htmlFor="purpose">Budget Purpose / Project Name<span className='requiredTags'> *</span></label>
+                <input
+                  type="text"
+                  id="purpose"
+                  name="purpose"
+                  value={formData.purpose}
                   onChange={handleInputChange}
                   required
                   className="formInput"
-                  placeholder="Provide a detailed description of the budget request"
+                  placeholder="Enter budget purpose or project name"
+                />
+                {errors.purpose?.map((msg: string, i: number) => (
+                  <div className="error-message" key={i}>{msg}</div>
+                ))}
+              </div>
+
+              <div className="formField">
+                <label htmlFor="justification">Justification<span className='requiredTags'> *</span></label>
+                <textarea
+                  id="justification"
+                  name="justification"
+                  value={formData.justification}
+                  onChange={handleInputChange}
+                  required
+                  className="formInput"
+                  placeholder="Provide detailed justification for this budget request"
                   rows={4}
                 />
-                {errors.description?.map((msg, i) => (
+                {errors.justification?.map((msg: string, i: number) => (
                   <div className="error-message" key={i}>{msg}</div>
                 ))}
               </div>

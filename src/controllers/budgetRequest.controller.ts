@@ -3,9 +3,10 @@ import { Request, Response } from 'express';
 import * as service from '../services/budgetRequest.service';
 import auditLogger from '../services/auditLogger.service';
 import webhookDispatcher from '../webhooks/dispatcher';
-import { applyAccessFilter } from '../middlewares/roleAccess.middleware';
+import { applyAccessFilter } from '../middlewares/permission.middleware';
 import { successResponse, successResponseWithPagination, errorResponse, notFoundResponse, forbiddenResponse } from '../utils/response.util';
 import cache from '../utils/cache.util';
+import { BudgetRequestCreate, BudgetRequestUpdate, BudgetRequestApproval, BudgetRequestRejection } from '../types/budgetRequest.types';
 
 export async function listBudgetRequests(req: Request, res: Response) {
   try {
@@ -37,7 +38,7 @@ export async function listBudgetRequests(req: Request, res: Response) {
     }
 
     // Apply role-based access control
-    filter = applyAccessFilter(filter, req.user!, req.serviceName);
+    filter = applyAccessFilter(filter, req.user!);
 
     // Execute query with pagination
     const skip = (Number(page) - 1) * Number(limit);
@@ -154,12 +155,12 @@ export async function submitBudgetRequest(req: Request, res: Response) {
     }
 
     // Verify ownership or admin role
-    if (existing.requestedBy !== req.user!.id && !req.user!.role.includes('Admin')) {
+    if (existing.createdBy !== req.user!.id && !req.user!.role.toLowerCase().includes('admin')) {
       return forbiddenResponse(res, 'Only the requester or admins can submit this request');
     }
 
     // Can only submit drafts
-    if (existing.status !== 'PENDING' || !existing.isDraft) {
+    if (existing.status !== 'DRAFT') {
       return errorResponse(res, 'Only draft budget requests can be submitted', 400);
     }
 
@@ -183,7 +184,7 @@ export async function submitBudgetRequest(req: Request, res: Response) {
       requestCode: updated.requestCode,
       department: updated.department,
       amountRequested: Number(updated.amountRequested),
-      requestedBy: updated.requestedBy
+      createdBy: updated.createdBy
     });
 
     return successResponse(res, updated, 'Budget request submitted successfully');
@@ -204,9 +205,9 @@ export async function approveBudgetRequest(req: Request, res: Response) {
       return notFoundResponse(res, 'Budget request');
     }
 
-    // Can only approve pending requests
-    if (existing.status !== 'PENDING') {
-      return errorResponse(res, 'Only pending budget requests can be approved', 400);
+    // Can only approve submitted requests
+    if (existing.status !== 'SUBMITTED') {
+      return errorResponse(res, 'Only submitted budget requests can be approved', 400);
     }
 
     // Approve budget request
@@ -253,9 +254,9 @@ export async function rejectBudgetRequest(req: Request, res: Response) {
       return notFoundResponse(res, 'Budget request');
     }
 
-    // Can only reject pending requests
-    if (existing.status !== 'PENDING') {
-      return errorResponse(res, 'Only pending budget requests can be rejected', 400);
+    // Can only reject submitted requests
+    if (existing.status !== 'SUBMITTED') {
+      return errorResponse(res, 'Only submitted budget requests can be rejected', 400);
     }
 
     // Reject budget request
